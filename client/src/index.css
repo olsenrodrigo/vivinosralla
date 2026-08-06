@@ -1,0 +1,251 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * ============================================================================
+ * VIVI NOSRALLA — Design System
+ * Derivado do brandbook (insumos/ID VISUAL VIVI NOSRALLA +.pdf)
+ *
+ * Cor principal: oliva #878f79 · Secundária: gelo #f1f1e7 · Areia #e4dcc9
+ * Tipografia oficial: Dream Avenue (display, licenciada) + Quicksand (Google)
+ * No site, Cormorant Garamond substitui a Dream Avenue nos títulos — a
+ * logomarca em si entra sempre como SVG vetorizado, nunca como webfont.
+ * ============================================================================
+ */
+
+@theme {
+  /* ── Oliva: escala construída sobre o #878f79 oficial ── */
+  --color-vn-olive-50: #f4f5f0;
+  --color-vn-olive-100: #e8eae0;
+  --color-vn-olive-200: #d3d7c7;
+  --color-vn-olive-300: #b4bca4;
+  --color-vn-olive-400: #9ba58a;
+  --color-vn-olive-500: #878f79; /* COR PRINCIPAL do brandbook */
+  --color-vn-olive-600: #6d7561; /* texto/botão sobre claro — AA 4.8:1 */
+  --color-vn-olive-700: #565d4c;
+  --color-vn-olive-800: #454a3e;
+  --color-vn-olive-900: #383c33;
+
+  /* ── Neutros quentes ── */
+  --color-vn-ice: #f1f1e7; /* gelo oficial */
+  --color-vn-sand: #e4dcc9; /* areia do brandbook */
+  --color-vn-sand-300: #d5cfbe;
+  --color-vn-ink: #34372e; /* texto forte, quase-preto esverdeado */
+  --color-vn-ink-soft: #5d6155; /* texto secundário */
+
+  /* ── Vinho: cor de ação e ênfase ── */
+  --color-vn-wine: #6b2336;
+  --color-vn-wine-light: #ad2a4c;
+
+  /* ── Semânticos (mantêm compatibilidade com os componentes shadcn) ── */
+  --color-primary: #6d7561;
+  --color-primary-foreground: #ffffff;
+  --color-secondary: #6b2336;
+  --color-secondary-foreground: #ffffff;
+  --color-accent: #ad2a4c;
+  --color-accent-foreground: #ffffff;
+
+  --color-background: #faf9f3;
+  --color-foreground: #34372e;
+  --color-muted: #f1f1e7;
+  --color-muted-foreground: #5d6155;
+  --color-card: #ffffff;
+  --color-card-foreground: #34372e;
+  --color-popover: #ffffff;
+  --color-popover-foreground: #34372e;
+
+  --color-border: #e3e0d2;
+  --color-input: #e3e0d2;
+  --color-ring: #878f79;
+
+  --color-destructive: #b3261e;
+  --color-destructive-foreground: #ffffff;
+
+  /*
+   * ── Tipografia ──
+   * Playfair Display substitui a Dream Avenue (licenciada): mesmo caráter de
+   * display serif de alto contraste e hastes finas. Foi escolhida no lugar da
+   * Cormorant Garamond porque esta desenha os diacríticos muito altos e
+   * destacados — em português ("você", "ê", "ã") o acento lê como sujeira.
+   */
+  --font-display: "Playfair Display", Georgia, ui-serif, serif;
+  --font-sans: "Quicksand", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "Quicksand", ui-sans-serif, system-ui, sans-serif;
+  --font-heading: "Playfair Display", Georgia, ui-serif, serif;
+
+  /* ── Raios: eco dos cantos do app icon ── */
+  --radius: 0.75rem;
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.5rem;
+
+  /* ── Sombras quentes (nunca cinza puro) ── */
+  --shadow-card: 0 1px 2px rgb(52 55 46 / 0.05), 0 10px 30px rgb(52 55 46 / 0.07);
+  --shadow-card-hover: 0 2px 4px rgb(52 55 46 / 0.06), 0 16px 40px rgb(52 55 46 / 0.12);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-sans antialiased bg-background text-foreground;
+    /* Público de 30 a 70 anos: corpo nunca abaixo de 16px */
+    font-size: 1rem;
+    line-height: 1.65;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    line-height: 1.12;
+    color: var(--color-vn-ink);
+  }
+
+  h5,
+  h6 {
+    @apply font-sans font-semibold;
+    color: var(--color-vn-ink);
+  }
+
+  p {
+    @apply font-sans;
+    line-height: 1.65;
+  }
+
+  /* Foco sempre visível — navegação por teclado */
+  :focus-visible {
+    outline: 2px solid var(--color-vn-olive-500);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  ::selection {
+    background: var(--color-vn-olive-200);
+    color: var(--color-vn-ink);
+  }
+
+  /* Evita o zoom automático do iOS ao focar campos */
+  input,
+  select,
+  textarea {
+    font-size: max(16px, 1rem);
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .container-vn {
+    @apply mx-auto w-full px-5 md:px-8;
+    max-width: 80rem;
+  }
+
+  .section-padding {
+    @apply py-16 md:py-24;
+  }
+
+  /* Rótulo de seção — mesmo tracking largo da assinatura do logo */
+  .eyebrow {
+    @apply font-sans font-semibold uppercase;
+    font-size: 0.8125rem;
+    letter-spacing: 0.18em;
+    color: var(--color-vn-olive-600);
+  }
+
+  /*
+   * Botão em pílula, ecoando os cantos arredondados do ícone da marca.
+   * A base é compartilhada por lista de seletores — o Tailwind 4 não permite
+   * `@apply` de uma classe customizada dentro de @layer.
+   *
+   * ATENÇÃO: estas classes definem `display: inline-flex`. Como estão na mesma
+   * camada das utilities do Tailwind, elas vencem um `hidden`/`lg:hidden`
+   * aplicado no mesmo elemento — para esconder um botão, ponha a classe de
+   * visibilidade num wrapper.
+   */
+  .btn-pill,
+  .btn-olive,
+  .btn-wine,
+  .btn-outline-olive {
+    @apply inline-flex items-center justify-center gap-2 rounded-full font-sans font-semibold transition-colors;
+    min-height: 2.875rem; /* alvo de toque confortável */
+    padding-inline: 1.75rem;
+  }
+
+  .btn-olive {
+    background: var(--color-vn-olive-600);
+    color: #fff;
+  }
+  .btn-olive:hover {
+    background: var(--color-vn-olive-700);
+  }
+
+  .btn-wine {
+    background: var(--color-vn-wine);
+    color: #fff;
+  }
+  .btn-wine:hover {
+    background: var(--color-vn-wine-light);
+  }
+
+  .btn-outline-olive {
+    color: var(--color-vn-olive-700);
+    border: 1px solid var(--color-vn-olive-300);
+    background: transparent;
+  }
+  .btn-outline-olive:hover {
+    background: var(--color-vn-olive-50);
+  }
+
+  .bg-alt {
+    background-color: var(--color-vn-ice);
+  }
+
+  .bg-sand {
+    background-color: var(--color-vn-sand);
+  }
+
+  /* Proporção retrato de moda — padrão de toda foto de produto */
+  .aspect-fashion {
+    aspect-ratio: 3 / 4;
+  }
+
+  /*
+   * Divisor da marca: o traço fino que liga o "v" ao "n" no monograma,
+   * traduzido em separador de seção.
+   */
+  .divider-vn {
+    @apply flex items-center justify-center gap-3;
+    color: var(--color-vn-olive-300);
+  }
+  .divider-vn::before,
+  .divider-vn::after {
+    content: "";
+    height: 1px;
+    flex: 1 1 0;
+    background: currentColor;
+    max-width: 5rem;
+  }
+}
+
+/* Respeita quem pediu menos movimento no sistema */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

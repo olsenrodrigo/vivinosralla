@@ -1,0 +1,1338 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Manual — Whitelabel Loja Virtual</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --primary: #5B8C9B;
+      --primary-dark: #3d6b7a;
+      --primary-light: #e8f4f7;
+      --sidebar-bg: #1a1f2e;
+      --sidebar-hover: #252d40;
+      --sidebar-active: #5B8C9B;
+      --text: #1e293b;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+      --bg: #f8fafc;
+      --white: #ffffff;
+      --code-bg: #1e293b;
+      --step-bg: #f0f9ff;
+      --step-border: #bae6fd;
+      --success: #059669;
+      --warning: #d97706;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      color: var(--text);
+      background: var(--bg);
+      line-height: 1.6;
+    }
+
+    /* ── LAYOUT ── */
+    .layout { display: flex; min-height: 100vh; }
+
+    /* ── SIDEBAR ── */
+    .sidebar {
+      width: 260px;
+      flex-shrink: 0;
+      background: var(--sidebar-bg);
+      color: #cbd5e1;
+      display: flex;
+      flex-direction: column;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+    }
+
+    .sidebar-header {
+      padding: 24px 20px 20px;
+      border-bottom: 1px solid #2d3748;
+    }
+
+    .sidebar-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      color: white;
+    }
+
+    .sidebar-logo-icon {
+      width: 36px;
+      height: 36px;
+      background: var(--primary);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+    }
+
+    .sidebar-logo-text { font-weight: 700; font-size: 14px; line-height: 1.2; }
+    .sidebar-logo-sub { font-size: 11px; color: #64748b; font-weight: 400; }
+
+    .sidebar-nav { flex: 1; padding: 12px 0; }
+
+    .nav-section-label {
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #475569;
+      padding: 12px 20px 6px;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 20px;
+      font-size: 13px;
+      color: #94a3b8;
+      text-decoration: none;
+      border-left: 3px solid transparent;
+      transition: all 0.15s;
+    }
+
+    .nav-item:hover {
+      background: var(--sidebar-hover);
+      color: white;
+      border-left-color: var(--primary);
+    }
+
+    .nav-item.active {
+      background: var(--sidebar-hover);
+      color: white;
+      border-left-color: var(--sidebar-active);
+    }
+
+    .nav-icon { font-size: 15px; width: 18px; text-align: center; }
+
+    .sidebar-footer {
+      padding: 16px 20px;
+      border-top: 1px solid #2d3748;
+      font-size: 11px;
+      color: #475569;
+      text-align: center;
+    }
+
+    /* ── MAIN CONTENT ── */
+    .content {
+      flex: 1;
+      min-width: 0;
+      padding: 48px 56px;
+      max-width: 900px;
+    }
+
+    /* ── HAMBURGER ── */
+    .hamburger {
+      display: none;
+      position: fixed;
+      top: 12px;
+      left: 12px;
+      z-index: 200;
+      background: var(--sidebar-bg);
+      border: none;
+      border-radius: 8px;
+      padding: 8px 10px;
+      cursor: pointer;
+      font-size: 18px;
+      color: white;
+    }
+
+    .sidebar-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 100;
+    }
+
+    /* ── HERO ── */
+    .hero {
+      background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 100%);
+      border-radius: 16px;
+      padding: 40px 48px;
+      color: white;
+      margin-bottom: 48px;
+    }
+
+    .hero-badge {
+      display: inline-block;
+      background: rgba(255,255,255,0.2);
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      padding: 4px 10px;
+      border-radius: 20px;
+      margin-bottom: 16px;
+    }
+
+    .hero h1 { font-size: 28px; font-weight: 700; margin-bottom: 12px; }
+    .hero p { font-size: 15px; opacity: 0.85; max-width: 520px; line-height: 1.7; }
+
+    .hero-links { display: flex; gap: 12px; margin-top: 24px; flex-wrap: wrap; }
+
+    .hero-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255,255,255,0.15);
+      border: 1px solid rgba(255,255,255,0.3);
+      color: white;
+      text-decoration: none;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      transition: background 0.15s;
+    }
+
+    .hero-link:hover { background: rgba(255,255,255,0.25); }
+
+    /* ── SECTIONS ── */
+    .section { margin-bottom: 64px; scroll-margin-top: 24px; }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 2px solid var(--border);
+    }
+
+    .section-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      background: var(--primary-light);
+      flex-shrink: 0;
+    }
+
+    .section-title { font-size: 22px; font-weight: 700; color: var(--text); }
+    .section-subtitle { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
+
+    /* ── PROSE ── */
+    .prose p { margin-bottom: 14px; font-size: 15px; color: #334155; line-height: 1.75; }
+    .prose p:last-child { margin-bottom: 0; }
+
+    /* ── STEPS ── */
+    .steps { margin: 20px 0; }
+
+    .step {
+      display: flex;
+      gap: 16px;
+      padding: 16px 20px;
+      background: var(--step-bg);
+      border: 1px solid var(--step-border);
+      border-radius: 10px;
+      margin-bottom: 10px;
+    }
+
+    .step-num {
+      width: 28px;
+      height: 28px;
+      background: var(--primary);
+      color: white;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 700;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .step-body { flex: 1; }
+    .step-title { font-weight: 600; font-size: 14px; margin-bottom: 4px; color: var(--text); }
+    .step-desc { font-size: 13.5px; color: #475569; line-height: 1.6; }
+
+    /* ── CALLOUT ── */
+    .callout {
+      border-left: 4px solid var(--primary);
+      background: var(--primary-light);
+      border-radius: 0 8px 8px 0;
+      padding: 14px 18px;
+      margin: 20px 0;
+      font-size: 13.5px;
+      color: #1e4a5f;
+    }
+
+    .callout.warning {
+      border-left-color: var(--warning);
+      background: #fffbeb;
+      color: #78350f;
+    }
+
+    .callout strong { font-weight: 600; }
+
+    /* ── CODE ── */
+    .code-block {
+      background: var(--code-bg);
+      border-radius: 10px;
+      padding: 20px 24px;
+      margin: 20px 0;
+      overflow-x: auto;
+    }
+
+    .code-block pre {
+      font-family: 'JetBrains Mono', 'Courier New', monospace;
+      font-size: 13px;
+      color: #e2e8f0;
+      line-height: 1.65;
+    }
+
+    .code-block .comment { color: #64748b; }
+    .code-block .key { color: #93c5fd; }
+    .code-block .val { color: #86efac; }
+
+    /* ── TABLE ── */
+    .data-table { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 14px; }
+    .data-table th {
+      background: var(--sidebar-bg);
+      color: #94a3b8;
+      text-align: left;
+      padding: 10px 16px;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .data-table th:first-child { border-radius: 8px 0 0 0; }
+    .data-table th:last-child { border-radius: 0 8px 0 0; }
+    .data-table td {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      color: #334155;
+      vertical-align: top;
+    }
+    .data-table tr:hover td { background: #f1f5f9; }
+
+    /* ── SCREENSHOT PLACEHOLDER ── */
+    .screenshot {
+      background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%);
+      border: 2px dashed #94a3b8;
+      border-radius: 10px;
+      height: 180px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 20px 0;
+      color: #64748b;
+      font-size: 14px;
+      font-style: italic;
+      text-align: center;
+      padding: 16px;
+    }
+
+    /* ── GRID ── */
+    .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; margin: 20px 0; }
+
+    .card {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px;
+      text-align: center;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+
+    .card-icon { font-size: 28px; margin-bottom: 10px; }
+    .card-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+    .card-desc { font-size: 12.5px; color: var(--text-muted); line-height: 1.5; }
+
+    /* ── BADGE ── */
+    .badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 11.5px;
+      font-weight: 600;
+    }
+    .badge-blue { background: #dbeafe; color: #1e40af; }
+    .badge-green { background: #dcfce7; color: #166534; }
+    .badge-yellow { background: #fef9c3; color: #854d0e; }
+    .badge-red { background: #fee2e2; color: #991b1b; }
+
+    /* ── FOOTER ── */
+    .footer {
+      margin-top: 80px;
+      padding-top: 32px;
+      border-top: 2px solid var(--border);
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 13px;
+    }
+
+    .footer-brand { font-weight: 700; color: var(--primary); font-size: 15px; }
+    .footer p { margin-top: 6px; }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 768px) {
+      .hamburger { display: flex; align-items: center; justify-content: center; }
+
+      .sidebar {
+        position: fixed;
+        left: -260px;
+        top: 0;
+        z-index: 150;
+        transition: left 0.25s ease;
+      }
+
+      .sidebar.open { left: 0; }
+      .sidebar-overlay.open { display: block; }
+
+      .content { padding: 72px 20px 32px; }
+      .hero { padding: 28px 24px; }
+      .hero h1 { font-size: 22px; }
+      .card-grid { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<button class="hamburger" id="hamburger" aria-label="Menu">☰</button>
+<div class="sidebar-overlay" id="overlay" onclick="toggleSidebar()"></div>
+
+<div class="layout">
+  <!-- SIDEBAR -->
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <a href="#inicio" class="sidebar-logo">
+        <div class="sidebar-logo-icon">🛒</div>
+        <div>
+          <div class="sidebar-logo-text">Loja Virtual</div>
+          <div class="sidebar-logo-sub">Manual do Usuário</div>
+        </div>
+      </a>
+    </div>
+
+    <div class="sidebar-nav">
+      <div class="nav-section-label">Geral</div>
+      <a href="#introducao" class="nav-item"><span class="nav-icon">📖</span> Introdução</a>
+      <a href="#instalacao-servidor" class="nav-item"><span class="nav-icon">🚀</span> Instalação no Servidor</a>
+      <a href="#primeiro-acesso" class="nav-item"><span class="nav-icon">🔑</span> Primeiro Acesso</a>
+
+      <div class="nav-section-label">Administração</div>
+      <a href="#produtos" class="nav-item"><span class="nav-icon">📦</span> Produtos</a>
+      <a href="#categorias" class="nav-item"><span class="nav-icon">🗂️</span> Categorias</a>
+      <a href="#pedidos" class="nav-item"><span class="nav-icon">🛍️</span> Pedidos</a>
+      <a href="#clientes" class="nav-item"><span class="nav-icon">👥</span> Clientes</a>
+      <a href="#cupons" class="nav-item"><span class="nav-icon">🏷️</span> Cupons</a>
+      <a href="#importacao" class="nav-item"><span class="nav-icon">📊</span> Importação</a>
+      <a href="#destaques" class="nav-item"><span class="nav-icon">⭐</span> Destaques</a>
+      <a href="#configuracoes" class="nav-item"><span class="nav-icon">⚙️</span> Configurações</a>
+
+      <div class="nav-section-label">Referência</div>
+      <a href="#idiomas" class="nav-item"><span class="nav-icon">🌐</span> Idiomas</a>
+      <a href="#pagamentos" class="nav-item"><span class="nav-icon">💳</span> Pagamentos</a>
+    </div>
+
+    <div class="sidebar-footer">
+      Sintetiza AI &copy; 2025
+    </div>
+  </nav>
+
+  <!-- MAIN -->
+  <main class="content">
+    <!-- HERO -->
+    <div class="hero" id="inicio">
+      <div class="hero-badge">Manual do Usuário v1.0</div>
+      <h1>Whitelabel Loja Virtual</h1>
+      <p>Guia completo para configurar, administrar e operar sua loja virtual. Do primeiro acesso até a gestão avançada de produtos e pedidos.</p>
+      <div class="hero-links">
+        <a href="http://localhost:5003" class="hero-link">🏠 Site principal</a>
+        <a href="http://localhost:5003/loja" class="hero-link">🛒 Loja virtual</a>
+        <a href="http://localhost:5003/admin" class="hero-link">⚙️ Painel admin</a>
+      </div>
+    </div>
+
+    <!-- INTRODUÇÃO -->
+    <section class="section" id="introducao">
+      <div class="section-header">
+        <div class="section-icon">📖</div>
+        <div>
+          <div class="section-title">Introdução</div>
+          <div class="section-subtitle">Visão geral da plataforma</div>
+        </div>
+      </div>
+      <div class="prose">
+        <p>O <strong>Whitelabel Loja Virtual</strong> é uma plataforma completa de e-commerce desenvolvida pela Sintetiza AI. Ela foi criada para que qualquer empresa possa ter uma loja virtual profissional, totalmente personalizada com sua identidade visual e integrada aos principais meios de pagamento do Brasil.</p>
+        <p>A plataforma inclui uma loja virtual para os clientes finais, um painel administrativo para gestão do negócio, suporte a múltiplos idiomas, importação em massa de produtos, cupons de desconto, e muito mais.</p>
+      </div>
+      <div class="card-grid">
+        <div class="card">
+          <div class="card-icon">🛒</div>
+          <div class="card-title">Loja Virtual</div>
+          <div class="card-desc">Vitrine de produtos, carrinho e checkout completo</div>
+        </div>
+        <div class="card">
+          <div class="card-icon">⚙️</div>
+          <div class="card-title">Painel Admin</div>
+          <div class="card-desc">Gestão completa de produtos, pedidos e clientes</div>
+        </div>
+        <div class="card">
+          <div class="card-icon">💳</div>
+          <div class="card-title">Pagamentos</div>
+          <div class="card-desc">PIX, Boleto e Cartão via MercadoPago</div>
+        </div>
+        <div class="card">
+          <div class="card-icon">🌐</div>
+          <div class="card-title">Multi-idioma</div>
+          <div class="card-desc">Português, Inglês e Espanhol</div>
+        </div>
+      </div>
+      <table class="data-table">
+        <thead><tr><th>Destino</th><th>URL</th></tr></thead>
+        <tbody>
+          <tr><td>Site principal</td><td><code>http://localhost:5003</code></td></tr>
+          <tr><td>Loja virtual</td><td><code>http://localhost:5003/loja</code></td></tr>
+          <tr><td>Painel administrativo</td><td><code>http://localhost:5003/admin</code></td></tr>
+          <tr><td>Login administrativo</td><td><code>http://localhost:5003/admin/login</code></td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- INSTALAÇÃO NO SERVIDOR -->
+    <section class="section" id="instalacao-servidor">
+      <div class="section-header">
+        <div class="section-icon">🚀</div>
+        <div>
+          <div class="section-title">Instalação no Servidor</div>
+          <div class="section-subtitle">Deploy em VPS Ubuntu, Docker ou plataformas PaaS</div>
+        </div>
+      </div>
+
+      <h3 style="font-size:16px;font-weight:600;margin:0 0 12px;color:#1e293b;">Requisitos do sistema</h3>
+      <table class="data-table">
+        <thead><tr><th>Requisito</th><th>Mínimo</th><th>Recomendado</th></tr></thead>
+        <tbody>
+          <tr><td>Sistema operacional</td><td>Ubuntu 22.04 LTS</td><td>Ubuntu 24.04 LTS</td></tr>
+          <tr><td>RAM</td><td>1 GB</td><td>2 GB ou mais</td></tr>
+          <tr><td>Disco</td><td>10 GB</td><td>20 GB SSD</td></tr>
+          <tr><td>Node.js</td><td>20 LTS</td><td>20 LTS</td></tr>
+          <tr><td>PostgreSQL</td><td>14</td><td>16</td></tr>
+          <tr><td>Domínio</td><td>Opcional (localhost)</td><td>Domínio próprio + SSL</td></tr>
+        </tbody>
+      </table>
+
+      <h3 style="font-size:16px;font-weight:600;margin:28px 0 12px;color:#1e293b;">Opção 1: VPS Ubuntu (recomendado)</h3>
+      <div class="prose">
+        <p>A maneira mais simples de instalar em um servidor Ubuntu. Dois scripts cuidam de tudo: instalação de dependências e configuração interativa da aplicação.</p>
+      </div>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <div class="step-title">Clone o repositório no servidor</div>
+            <div class="step-desc">Conecte via SSH e clone o projeto para o diretório desejado:</div>
+          </div>
+        </div>
+      </div>
+      <div class="code-block">
+        <pre>git clone https://github.com/sua-org/whitelabel-loja-virtual.git /var/www/loja
+cd /var/www/loja</pre>
+      </div>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <div class="step-title">Execute o script de instalação de dependências</div>
+            <div class="step-desc">Instala Node.js 20, PostgreSQL 16, Nginx, PM2 e Certbot. É idempotente — seguro executar mais de uma vez.</div>
+          </div>
+        </div>
+      </div>
+      <div class="code-block">
+        <pre>chmod +x setup/*.sh
+sudo bash setup/install.sh</pre>
+      </div>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <div class="step-title">Execute o script de configuração interativa</div>
+            <div class="step-desc">Configura banco de dados, gera <code>.env</code> com JWT automático, compila a aplicação, inicia com PM2 e configura Nginx.</div>
+          </div>
+        </div>
+      </div>
+      <div class="code-block">
+        <pre>bash setup/setup.sh</pre>
+      </div>
+      <div class="callout">
+        <strong>O script pedirá:</strong> nome/usuário/senha do banco, porta da aplicação, credenciais SMTP, domínio do site e se deseja configurar HTTPS via Let's Encrypt.
+      </div>
+
+      <h3 style="font-size:16px;font-weight:600;margin:28px 0 12px;color:#1e293b;">Opção 2: Docker Compose</h3>
+      <div class="prose">
+        <p>Ideal para ambientes containerizados. Sobe a aplicação e o PostgreSQL juntos, com banco já inicializado pelas migrações.</p>
+      </div>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <div class="step-title">Crie o arquivo de variáveis de ambiente</div>
+            <div class="step-desc">Copie o exemplo e edite com suas configurações reais:</div>
+          </div>
+        </div>
+      </div>
+      <div class="code-block">
+        <pre>cp setup/.env.example .env
+nano .env</pre>
+      </div>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <div class="step-title">Suba os containers</div>
+          </div>
+        </div>
+      </div>
+      <div class="code-block">
+        <pre>cd setup
+docker compose up -d</pre>
+      </div>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <div class="step-title">Verifique os logs</div>
+          </div>
+        </div>
+      </div>
+      <div class="code-block">
+        <pre>docker compose logs -f app</pre>
+      </div>
+
+      <h3 style="font-size:16px;font-weight:600;margin:28px 0 12px;color:#1e293b;">Opção 3: Railway / Render / Heroku</h3>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <div class="step-title">Conecte o repositório à plataforma</div>
+            <div class="step-desc">Importe o repositório GitHub na plataforma PaaS escolhida e adicione um banco de dados PostgreSQL.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <div class="step-title">Configure as variáveis de ambiente</div>
+            <div class="step-desc">Adicione todas as variáveis da tabela abaixo no painel da plataforma, especialmente <code>DATABASE_URL</code>, <code>JWT_SECRET</code> e as configurações SMTP.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <div class="step-title">Configure o build e o start</div>
+            <div class="step-desc">Comando de build: <code>npm run build</code> — Comando de start: <code>node dist/index.cjs</code></div>
+          </div>
+        </div>
+      </div>
+
+      <h3 style="font-size:16px;font-weight:600;margin:28px 0 12px;color:#1e293b;">Variáveis de Ambiente</h3>
+      <table class="data-table">
+        <thead><tr><th>Variável</th><th>Obrigatório</th><th>Descrição</th></tr></thead>
+        <tbody>
+          <tr><td><code>DATABASE_URL</code></td><td><span class="badge badge-red">Sim</span></td><td>URL completa do PostgreSQL</td></tr>
+          <tr><td><code>JWT_SECRET</code></td><td><span class="badge badge-red">Sim</span></td><td>String aleatória longa para assinar tokens JWT</td></tr>
+          <tr><td><code>PORT</code></td><td><span class="badge badge-yellow">Não</span></td><td>Porta HTTP do servidor (padrão: <code>3000</code>)</td></tr>
+          <tr><td><code>NODE_ENV</code></td><td><span class="badge badge-red">Sim</span></td><td>Defina como <code>production</code></td></tr>
+          <tr><td><code>SMTP_HOST</code></td><td><span class="badge badge-blue">MFA*</span></td><td>Servidor SMTP (ex.: <code>smtp.gmail.com</code>)</td></tr>
+          <tr><td><code>SMTP_PORT</code></td><td><span class="badge badge-blue">MFA*</span></td><td>Porta SMTP (ex.: <code>587</code>)</td></tr>
+          <tr><td><code>SMTP_USER</code></td><td><span class="badge badge-blue">MFA*</span></td><td>Usuário/endereço do e-mail SMTP</td></tr>
+          <tr><td><code>SMTP_PASS</code></td><td><span class="badge badge-blue">MFA*</span></td><td>Senha SMTP ou Senha de App (Gmail)</td></tr>
+          <tr><td><code>CONTACT_EMAIL</code></td><td><span class="badge badge-yellow">Não</span></td><td>E-mail que recebe formulários de contato</td></tr>
+          <tr><td><code>SETUP_SECRET</code></td><td><span class="badge badge-yellow">Não</span></td><td>Chave extra para proteger a rota de primeiro acesso</td></tr>
+          <tr><td><code>MERCADO_PAGO_TOKEN</code></td><td><span class="badge badge-yellow">Não</span></td><td>Access Token do MercadoPago (pode ser definido pelo painel)</td></tr>
+        </tbody>
+      </table>
+      <div class="callout">
+        <strong>*MFA:</strong> As variáveis SMTP são obrigatórias para que a autenticação de dois fatores por e-mail e as notificações de pedido funcionem corretamente.
+      </div>
+
+      <h3 style="font-size:16px;font-weight:600;margin:28px 0 12px;color:#1e293b;">Configuração SMTP para MFA</h3>
+      <div class="prose">
+        <p>A plataforma usa MFA por e-mail para proteger o acesso ao painel administrativo. A cada login, um código OTP é enviado para o e-mail do administrador.</p>
+        <p>Para Gmail: acesse <strong>myaccount.google.com → Segurança → Senhas de app</strong>, gere uma senha de 16 caracteres e use-a como <code>SMTP_PASS</code>. Não use sua senha principal do Google.</p>
+      </div>
+      <div class="code-block">
+        <pre><span class="comment"># Exemplo para Gmail com Senha de App</span>
+<span class="key">SMTP_HOST</span>=<span class="val">smtp.gmail.com</span>
+<span class="key">SMTP_PORT</span>=<span class="val">587</span>
+<span class="key">SMTP_USER</span>=<span class="val">seuemail@gmail.com</span>
+<span class="key">SMTP_PASS</span>=<span class="val">xxxx xxxx xxxx xxxx</span></pre>
+      </div>
+
+      <h3 style="font-size:16px;font-weight:600;margin:28px 0 12px;color:#1e293b;">Segurança</h3>
+      <div class="callout warning">
+        <strong>Boas práticas importantes:</strong>
+        <ul style="margin-top:8px;padding-left:20px;line-height:2;">
+          <li>Nunca versione o arquivo <code>.env</code> — ele já está no <code>.gitignore</code></li>
+          <li>Defina <code>SETUP_SECRET</code> para proteger a rota de criação do primeiro admin</li>
+          <li>Use HTTPS em produção — o <code>install.sh</code> inclui o Certbot (Let's Encrypt)</li>
+          <li>O rate limiting está ativo nas rotas de autenticação por padrão</li>
+        </ul>
+      </div>
+
+      <h3 style="font-size:16px;font-weight:600;margin:28px 0 12px;color:#1e293b;">Atualizar para nova versão</h3>
+      <div class="prose">
+        <p>Em servidores VPS, use o script de atualização que faz pull, reinstala dependências, roda migrações e reinicia o PM2:</p>
+      </div>
+      <div class="code-block">
+        <pre>bash /var/www/loja/setup/update.sh</pre>
+      </div>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <div class="step-title">Primeiro acesso após o deploy</div>
+            <div class="step-desc">Acesse <code>http://seu-dominio/admin</code>, clique em <strong>"Primeiro Acesso"</strong>, crie a conta de administrador e faça login.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <div class="step-title">Configure a loja no painel</div>
+            <div class="step-desc">Acesse <strong>Admin → Configurações</strong> para definir o nome da loja, SMTP, MercadoPago e aparência visual.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PRIMEIRO ACESSO -->
+    <section class="section" id="primeiro-acesso">
+      <div class="section-header">
+        <div class="section-icon">🔑</div>
+        <div>
+          <div class="section-title">Primeiro Acesso</div>
+          <div class="section-subtitle">Configuração inicial da conta de administrador</div>
+        </div>
+      </div>
+      <div class="prose">
+        <p>Na primeira vez que a plataforma é iniciada, não existe nenhum administrador cadastrado. É preciso criar a conta inicial antes de usar o painel.</p>
+      </div>
+      <div class="screenshot">📸 [Screenshot: Tela de Login com link "Primeiro Acesso"]</div>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <div class="step-title">Acesse o painel administrativo</div>
+            <div class="step-desc">Abra o navegador e vá para <code>http://localhost:5003/admin</code>. Você será redirecionado automaticamente para a tela de login.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <div class="step-title">Clique em "Primeiro Acesso"</div>
+            <div class="step-desc">Na tela de login, localize e clique no link <strong>"Primeiro Acesso"</strong> exibido abaixo do formulário.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <div class="step-title">Preencha os dados do administrador</div>
+            <div class="step-desc">Informe o e-mail e a senha que serão usados para acessar o painel. Use uma senha forte com pelo menos 8 caracteres.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-body">
+            <div class="step-title">Clique em "Criar conta de administrador"</div>
+            <div class="step-desc">Após o cadastro ser criado, você será redirecionado para a tela de login.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">5</div>
+          <div class="step-body">
+            <div class="step-title">Faça login com as credenciais criadas</div>
+            <div class="step-desc">Informe o e-mail e a senha cadastrados e clique em <strong>"Entrar"</strong>. Você será levado ao Dashboard.</div>
+          </div>
+        </div>
+      </div>
+      <div class="callout warning">
+        <strong>Atenção:</strong> Após o primeiro administrador ser criado, o link "Primeiro Acesso" é desativado por segurança e não poderá ser usado novamente.
+      </div>
+    </section>
+
+    <!-- PRODUTOS -->
+    <section class="section" id="produtos">
+      <div class="section-header">
+        <div class="section-icon">📦</div>
+        <div>
+          <div class="section-title">Produtos</div>
+          <div class="section-subtitle">Gestão completa do catálogo de produtos</div>
+        </div>
+      </div>
+      <div class="prose">
+        <p>A seção de Produtos é onde você cadastra e gerencia todo o catálogo da sua loja. Cada produto pode ter fotos, variantes (como tamanho e cor), preço promocional, controle de estoque e categorias.</p>
+      </div>
+      <div class="screenshot">📸 [Screenshot: Listagem de Produtos no painel admin]</div>
+
+      <h3 style="font-size:16px;font-weight:600;margin:24px 0 12px;color:#1e293b;">Como adicionar um novo produto</h3>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <div class="step-title">Acesse Admin → Produtos</div>
+            <div class="step-desc">No menu lateral, clique em <strong>Produtos</strong>.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <div class="step-title">Clique em "Novo Produto"</div>
+            <div class="step-desc">O botão fica no canto superior direito da listagem.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <div class="step-title">Preencha as informações básicas</div>
+            <div class="step-desc">Nome do produto, slug (URL amigável gerado automaticamente), descrição, preço e preço promocional (opcional).</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-body">
+            <div class="step-title">Configure estoque e categoria</div>
+            <div class="step-desc">Informe a quantidade em estoque e selecione a categoria. Ambos são opcionais mas recomendados.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">5</div>
+          <div class="step-body">
+            <div class="step-title">Faça upload das fotos</div>
+            <div class="step-desc">Arraste ou selecione uma ou mais imagens. A primeira foto será a foto principal do produto. Formatos aceitos: JPG, PNG, WebP.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">6</div>
+          <div class="step-body">
+            <div class="step-title">Crie variantes (opcional)</div>
+            <div class="step-desc">Na aba de variantes, adicione combinações como Tamanho (P, M, G) ou Cor (Azul, Vermelho). Cada variante pode ter estoque e preço próprios.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">7</div>
+          <div class="step-body">
+            <div class="step-title">Publique o produto</div>
+            <div class="step-desc">Ative o toggle <strong>"Publicado"</strong> para que o produto apareça na loja. Produtos não publicados ficam ocultos dos clientes.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">8</div>
+          <div class="step-body">
+            <div class="step-title">Clique em "Salvar"</div>
+            <div class="step-desc">O produto será salvo e aparecerá imediatamente na loja se estiver publicado.</div>
+          </div>
+        </div>
+      </div>
+      <div class="callout">
+        <strong>Dica:</strong> O slug é a URL do produto na loja (ex.: <code>/loja/produto/camiseta-azul</code>). Ele é gerado automaticamente a partir do nome, mas pode ser editado manualmente.
+      </div>
+    </section>
+
+    <!-- CATEGORIAS -->
+    <section class="section" id="categorias">
+      <div class="section-header">
+        <div class="section-icon">🗂️</div>
+        <div>
+          <div class="section-title">Categorias</div>
+          <div class="section-subtitle">Organização do catálogo por categorias</div>
+        </div>
+      </div>
+      <div class="prose">
+        <p>As categorias organizam os produtos da loja e permitem que os clientes filtrem facilmente o que procuram. Uma categoria pode ser associada a vários produtos.</p>
+      </div>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <div class="step-title">Acesse Admin → Categorias</div>
+            <div class="step-desc">No menu lateral, clique em <strong>Categorias</strong>.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <div class="step-title">Clique em "Nova Categoria"</div>
+            <div class="step-desc">Abre o formulário de criação de categoria.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <div class="step-title">Informe o nome e o slug</div>
+            <div class="step-desc">O slug é a identificação da categoria na URL. Exemplo: <code>camisetas</code>, <code>calcados</code>.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-body">
+            <div class="step-title">Salve a categoria</div>
+            <div class="step-desc">A categoria estará disponível para seleção ao criar ou editar produtos.</div>
+          </div>
+        </div>
+      </div>
+      <div class="callout warning">
+        <strong>Atenção:</strong> Ao excluir uma categoria, os produtos vinculados a ela não são excluídos — eles apenas perdem a associação com a categoria.
+      </div>
+    </section>
+
+    <!-- PEDIDOS -->
+    <section class="section" id="pedidos">
+      <div class="section-header">
+        <div class="section-icon">🛍️</div>
+        <div>
+          <div class="section-title">Pedidos</div>
+          <div class="section-subtitle">Visualização e atualização de status dos pedidos</div>
+        </div>
+      </div>
+      <div class="prose">
+        <p>A seção de Pedidos exibe todos os pedidos realizados pelos clientes, com detalhes de itens, valores, endereço de entrega e histórico de status.</p>
+      </div>
+      <div class="screenshot">📸 [Screenshot: Listagem de Pedidos com filtros de status]</div>
+
+      <h3 style="font-size:16px;font-weight:600;margin:24px 0 12px;color:#1e293b;">Status disponíveis</h3>
+      <table class="data-table">
+        <thead><tr><th>Status</th><th>Descrição</th></tr></thead>
+        <tbody>
+          <tr><td><span class="badge badge-yellow">Pendente</span></td><td>Pedido recebido, aguardando confirmação de pagamento</td></tr>
+          <tr><td><span class="badge badge-blue">Confirmado</span></td><td>Pagamento confirmado, aguardando separação</td></tr>
+          <tr><td><span class="badge badge-blue">Em separação</span></td><td>Produto sendo preparado para envio</td></tr>
+          <tr><td><span class="badge badge-green">Enviado</span></td><td>Produto despachado — informe o código de rastreio</td></tr>
+          <tr><td><span class="badge badge-green">Entregue</span></td><td>Produto entregue ao cliente</td></tr>
+          <tr><td><span class="badge badge-red">Cancelado</span></td><td>Pedido cancelado</td></tr>
+        </tbody>
+      </table>
+
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <div class="step-title">Acesse Admin → Pedidos</div>
+            <div class="step-desc">Veja a lista de todos os pedidos ordenados por data.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <div class="step-title">Clique no número do pedido</div>
+            <div class="step-desc">Abre a página de detalhe com itens, valores, dados do cliente e histórico de status.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <div class="step-title">Atualize o status</div>
+            <div class="step-desc">Selecione o novo status no seletor e clique em <strong>"Atualizar"</strong>. O cliente receberá um e-mail automático (se SMTP configurado).</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-body">
+            <div class="step-title">Informe o código de rastreio (para "Enviado")</div>
+            <div class="step-desc">Preencha o código de rastreio e a transportadora. Essas informações aparecem para o cliente na página do pedido.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CLIENTES -->
+    <section class="section" id="clientes">
+      <div class="section-header">
+        <div class="section-icon">👥</div>
+        <div>
+          <div class="section-title">Clientes</div>
+          <div class="section-subtitle">Visualização da base de clientes</div>
+        </div>
+      </div>
+      <div class="prose">
+        <p>A seção de Clientes exibe todos os usuários que realizaram pelo menos um pedido na loja. É possível visualizar o histórico de compras de cada cliente.</p>
+      </div>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <div class="step-title">Acesse Admin → Clientes</div>
+            <div class="step-desc">Veja a lista de todos os clientes com nome, e-mail, telefone e total de pedidos.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <div class="step-title">Clique em um cliente para ver detalhes</div>
+            <div class="step-desc">Visualize o histórico completo de pedidos do cliente selecionado.</div>
+          </div>
+        </div>
+      </div>
+      <div class="callout">
+        <strong>Nota:</strong> O cadastro de clientes é somente leitura. Os clientes são registrados automaticamente ao realizar o primeiro pedido.
+      </div>
+    </section>
+
+    <!-- CUPONS -->
+    <section class="section" id="cupons">
+      <div class="section-header">
+        <div class="section-icon">🏷️</div>
+        <div>
+          <div class="section-title">Cupons</div>
+          <div class="section-subtitle">Criação e gestão de cupons de desconto</div>
+        </div>
+      </div>
+      <div class="prose">
+        <p>Os cupons de desconto permitem criar promoções para atrair e fidelizar clientes. Os cupons são aplicados pelo cliente no carrinho de compras antes de finalizar o pedido.</p>
+      </div>
+
+      <h3 style="font-size:16px;font-weight:600;margin:24px 0 12px;color:#1e293b;">Tipos de cupom</h3>
+      <table class="data-table">
+        <thead><tr><th>Tipo</th><th>Efeito</th><th>Exemplo</th></tr></thead>
+        <tbody>
+          <tr><td><span class="badge badge-blue">Percentual</span></td><td>Desconto em % sobre o total</td><td>10% de desconto</td></tr>
+          <tr><td><span class="badge badge-green">Valor fixo</span></td><td>Desconto em R$ sobre o total</td><td>R$ 20,00 de desconto</td></tr>
+          <tr><td><span class="badge badge-yellow">Frete grátis</span></td><td>Zera o valor do frete</td><td>Frete grátis</td></tr>
+        </tbody>
+      </table>
+
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <div class="step-title">Acesse Admin → Cupons</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <div class="step-title">Clique em "Novo Cupom"</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <div class="step-title">Defina o código do cupom</div>
+            <div class="step-desc">O código é o que o cliente digita no carrinho. Ex.: <code>PROMO10</code>, <code>VERAO20</code>. Use letras maiúsculas e sem espaços.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-body">
+            <div class="step-title">Selecione o tipo e informe o valor</div>
+            <div class="step-desc">Para percentual: informe o número (ex.: <code>10</code> para 10%). Para valor fixo: informe o valor em reais (ex.: <code>25</code> para R$ 25).</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">5</div>
+          <div class="step-body">
+            <div class="step-title">Configure a validade e limite de usos (opcional)</div>
+            <div class="step-desc">Defina uma data de expiração e/ou um número máximo de utilizações. Deixe em branco para ilimitado.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">6</div>
+          <div class="step-body">
+            <div class="step-title">Ative e salve</div>
+            <div class="step-desc">Marque o cupom como <strong>"Ativo"</strong> e clique em <strong>"Salvar"</strong>.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- IMPORTAÇÃO -->
+    <section class="section" id="importacao">
+      <div class="section-header">
+        <div class="section-icon">📊</div>
+        <div>
+          <div class="section-title">Importação em Massa</div>
+          <div class="section-subtitle">Cadastro de produtos via CSV ou XLSX</div>
+        </div>
+      </div>
+      <div class="prose">
+        <p>A importação em massa permite cadastrar ou atualizar centenas de produtos de uma só vez usando uma planilha. É ideal para migrar um catálogo existente ou fazer atualizações em lote.</p>
+      </div>
+
+      <h3 style="font-size:16px;font-weight:600;margin:24px 0 12px;color:#1e293b;">Colunas do template</h3>
+      <table class="data-table">
+        <thead><tr><th>Coluna</th><th>Obrigatório</th><th>Descrição</th></tr></thead>
+        <tbody>
+          <tr><td><code>nome</code></td><td><span class="badge badge-red">Sim</span></td><td>Nome do produto</td></tr>
+          <tr><td><code>slug</code></td><td><span class="badge badge-red">Sim</span></td><td>URL amigável única</td></tr>
+          <tr><td><code>descricao</code></td><td><span class="badge badge-yellow">Não</span></td><td>Descrição detalhada</td></tr>
+          <tr><td><code>preco</code></td><td><span class="badge badge-red">Sim</span></td><td>Preço em reais (ex.: 49.90)</td></tr>
+          <tr><td><code>preco_promocional</code></td><td><span class="badge badge-yellow">Não</span></td><td>Preço com desconto</td></tr>
+          <tr><td><code>estoque</code></td><td><span class="badge badge-yellow">Não</span></td><td>Quantidade em estoque</td></tr>
+          <tr><td><code>categoria</code></td><td><span class="badge badge-yellow">Não</span></td><td>Slug da categoria</td></tr>
+          <tr><td><code>publicado</code></td><td><span class="badge badge-yellow">Não</span></td><td>true ou false</td></tr>
+        </tbody>
+      </table>
+
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <div class="step-title">Acesse Admin → Importar</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <div class="step-title">Baixe o template</div>
+            <div class="step-desc">Clique em <strong>"Baixar template"</strong> para obter a planilha modelo no formato correto.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <div class="step-title">Preencha os dados</div>
+            <div class="step-desc">Abra a planilha no Excel ou Google Sheets e preencha cada produto em uma linha, seguindo as colunas do template.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-body">
+            <div class="step-title">Faça o upload do arquivo</div>
+            <div class="step-desc">Salve como <code>.csv</code> ou <code>.xlsx</code> e arraste para a área de upload na página de importação.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">5</div>
+          <div class="step-body">
+            <div class="step-title">Revise a pré-visualização e importe</div>
+            <div class="step-desc">Confira os dados exibidos na pré-visualização e clique em <strong>"Importar"</strong> para processar.</div>
+          </div>
+        </div>
+      </div>
+      <div class="callout">
+        <strong>Comportamento de atualização:</strong> Produtos com o mesmo slug são atualizados. Produtos com slugs novos são criados. Nenhum produto é excluído na importação.
+      </div>
+    </section>
+
+    <!-- DESTAQUES -->
+    <section class="section" id="destaques">
+      <div class="section-header">
+        <div class="section-icon">⭐</div>
+        <div>
+          <div class="section-title">Destaques</div>
+          <div class="section-subtitle">Produtos em destaque na loja</div>
+        </div>
+      </div>
+      <div class="prose">
+        <p>Os produtos marcados como destaque aparecem em carrosséis e seções especiais na página inicial e na loja virtual, dando mais visibilidade aos produtos que você deseja promover.</p>
+      </div>
+      <div class="screenshot">📸 [Screenshot: Seção de Destaques na loja virtual]</div>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <div class="step-title">Acesse Admin → Destaques</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <div class="step-title">Visualize a lista de produtos publicados</div>
+            <div class="step-desc">Todos os produtos publicados na loja são exibidos nesta tela.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <div class="step-title">Ative o destaque no produto desejado</div>
+            <div class="step-desc">Clique no botão <strong>"Destaque"</strong> ou na estrela ao lado do produto. O produto será exibido nos carrosséis da loja imediatamente.</div>
+          </div>
+        </div>
+      </div>
+      <div class="callout">
+        <strong>Dica:</strong> Mantenha entre 4 e 8 produtos em destaque para uma apresentação visual equilibrada nos carrosséis.
+      </div>
+    </section>
+
+    <!-- CONFIGURAÇÕES -->
+    <section class="section" id="configuracoes">
+      <div class="section-header">
+        <div class="section-icon">⚙️</div>
+        <div>
+          <div class="section-title">Configurações</div>
+          <div class="section-subtitle">Personalização completa da loja</div>
+        </div>
+      </div>
+      <div class="prose">
+        <p>A seção de Configurações centraliza todas as personalizações da plataforma: identidade visual, integrações de pagamento, e-mail e frete.</p>
+      </div>
+
+      <h3 style="font-size:16px;font-weight:600;margin:24px 0 12px;color:#1e293b;">Informações da Loja</h3>
+      <div class="prose">
+        <p>Configure o nome da loja, descrição, CNPJ, endereço, telefone e e-mail de contato. Essas informações aparecem no rodapé da loja e nos e-mails enviados aos clientes.</p>
+      </div>
+
+      <h3 style="font-size:16px;font-weight:600;margin:24px 0 12px;color:#1e293b;">Aparência</h3>
+      <div class="prose">
+        <p>Escolha uma paleta de cores predefinida ou defina cores personalizadas para a loja. As mudanças são aplicadas em tempo real.</p>
+      </div>
+      <div class="screenshot">📸 [Screenshot: Seletor de cores e paletas no painel de Configurações]</div>
+
+      <h3 style="font-size:16px;font-weight:600;margin:24px 0 12px;color:#1e293b;">E-mail (SMTP)</h3>
+      <div class="prose">
+        <p>Configure o servidor de e-mail para envio de notificações automáticas. Necessário para confirmações de pedido e atualizações de status.</p>
+      </div>
+      <table class="data-table">
+        <thead><tr><th>Campo</th><th>Exemplo</th></tr></thead>
+        <tbody>
+          <tr><td>Host SMTP</td><td><code>smtp.gmail.com</code></td></tr>
+          <tr><td>Porta</td><td><code>587</code></td></tr>
+          <tr><td>Usuário</td><td><code>seu@gmail.com</code></td></tr>
+          <tr><td>Senha / App Password</td><td><code>xxxx xxxx xxxx xxxx</code></td></tr>
+          <tr><td>E-mail remetente</td><td><code>loja@seudominio.com</code></td></tr>
+        </tbody>
+      </table>
+
+      <h3 style="font-size:16px;font-weight:600;margin:24px 0 12px;color:#1e293b;">Pagamento (MercadoPago)</h3>
+      <div class="prose">
+        <p>Informe o <strong>Access Token</strong> do MercadoPago para habilitar os meios de pagamento na loja. Obtenha suas credenciais em <code>mercadopago.com.br/developers</code>.</p>
+      </div>
+
+      <h3 style="font-size:16px;font-weight:600;margin:24px 0 12px;color:#1e293b;">Configuração do .env</h3>
+      <div class="code-block">
+        <pre><span class="comment"># Banco de dados PostgreSQL</span>
+<span class="key">DATABASE_URL</span>=<span class="val">postgresql://usuario:senha@localhost:5432/whitelabel</span>
+
+<span class="comment"># Segurança</span>
+<span class="key">JWT_SECRET</span>=<span class="val">sua_chave_secreta_muito_longa_e_aleatoria</span>
+
+<span class="comment"># Servidor</span>
+<span class="key">PORT</span>=<span class="val">5003</span>
+
+<span class="comment"># E-mail (SMTP)</span>
+<span class="key">SMTP_HOST</span>=<span class="val">smtp.seuprovedor.com</span>
+<span class="key">SMTP_PORT</span>=<span class="val">587</span>
+<span class="key">SMTP_USER</span>=<span class="val">seu@email.com</span>
+<span class="key">SMTP_PASS</span>=<span class="val">sua_senha_smtp</span>
+<span class="key">CONTACT_EMAIL</span>=<span class="val">contato@sualoja.com</span>
+
+<span class="comment"># MercadoPago (opcional)</span>
+<span class="key">MERCADO_PAGO_TOKEN</span>=<span class="val">APP_USR-xxxxxxxxxxxxxxxxxxxx</span></pre>
+      </div>
+    </section>
+
+    <!-- IDIOMAS -->
+    <section class="section" id="idiomas">
+      <div class="section-header">
+        <div class="section-icon">🌐</div>
+        <div>
+          <div class="section-title">Idiomas</div>
+          <div class="section-subtitle">Suporte a múltiplos idiomas</div>
+        </div>
+      </div>
+      <div class="prose">
+        <p>A plataforma suporta três idiomas. O idioma padrão é o Português, e os clientes podem alternar pelo seletor de idioma na barra de navegação da loja.</p>
+      </div>
+      <table class="data-table">
+        <thead><tr><th>Idioma</th><th>URL de acesso</th></tr></thead>
+        <tbody>
+          <tr><td>🇧🇷 Português (padrão)</td><td><code>http://localhost:5003</code></td></tr>
+          <tr><td>🇺🇸 Inglês</td><td><code>http://localhost:5003/en</code></td></tr>
+          <tr><td>🇪🇸 Espanhol</td><td><code>http://localhost:5003/es</code></td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- PAGAMENTOS -->
+    <section class="section" id="pagamentos">
+      <div class="section-header">
+        <div class="section-icon">💳</div>
+        <div>
+          <div class="section-title">Meios de Pagamento</div>
+          <div class="section-subtitle">Opções de pagamento disponíveis na loja</div>
+        </div>
+      </div>
+      <div class="prose">
+        <p>Todos os pagamentos são processados via <strong>MercadoPago</strong>. Para habilitar os meios de pagamento, é necessário configurar o Access Token nas Configurações do painel.</p>
+      </div>
+      <table class="data-table">
+        <thead><tr><th>Meio de Pagamento</th><th>Detalhes</th><th>Prazo</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>💠 PIX</td>
+            <td>Desconto de <strong>5%</strong> aplicado automaticamente</td>
+            <td>Instantâneo</td>
+          </tr>
+          <tr>
+            <td>📄 Boleto Bancário</td>
+            <td>Sem desconto adicional</td>
+            <td>3 dias úteis para compensação</td>
+          </tr>
+          <tr>
+            <td>💳 Cartão de Crédito</td>
+            <td>Parcelamento em até <strong>12x</strong></td>
+            <td>Aprovação imediata</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="callout">
+        <strong>Como obter as credenciais MercadoPago:</strong> Acesse <code>mercadopago.com.br/developers</code>, crie uma aplicação e copie o <em>Access Token de produção</em>. Cole este token no campo correspondente em <strong>Admin → Configurações → Pagamento</strong>.
+      </div>
+    </section>
+
+    <!-- FOOTER -->
+    <div class="footer">
+      <div class="footer-brand">Sintetiza AI</div>
+      <p>Plataforma desenvolvida por Sintetiza AI · contato@sintetiza.ai</p>
+      <p style="margin-top:4px;font-size:12px;">sintetiza.ai · 2025</p>
+    </div>
+  </main>
+</div>
+
+<script>
+  function toggleSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('overlay');
+    sidebar.classList.toggle('open');
+    overlay.classList.toggle('open');
+  }
+
+  document.getElementById('hamburger').addEventListener('click', toggleSidebar);
+
+  // Highlight active nav item on scroll
+  const sections = document.querySelectorAll('section[id], div[id="inicio"]');
+  const navItems = document.querySelectorAll('.nav-item');
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        navItems.forEach(item => {
+          item.classList.remove('active');
+          if (item.getAttribute('href') === '#' + entry.target.id) {
+            item.classList.add('active');
+          }
+        });
+      }
+    });
+  }, { rootMargin: '-20% 0px -70% 0px' });
+
+  sections.forEach(s => observer.observe(s));
+
+  // Close sidebar on nav click (mobile)
+  navItems.forEach(item => {
+    item.addEventListener('click', () => {
+      document.getElementById('sidebar').classList.remove('open');
+      document.getElementById('overlay').classList.remove('open');
+    });
+  });
+</script>
+</body>
+</html>

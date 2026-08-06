@@ -1,0 +1,46 @@
+version: "3.9"
+
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: setup/Dockerfile
+    container_name: whitelabel-loja
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3000}:${PORT:-3000}"
+    environment:
+      - DATABASE_URL=postgresql://loja_user:${DB_PASS:-changeme}@db:5432/loja_virtual
+      - JWT_SECRET=${JWT_SECRET}
+      - PORT=${PORT:-3000}
+      - NODE_ENV=production
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASS=${SMTP_PASS}
+      - CONTACT_EMAIL=${CONTACT_EMAIL}
+    volumes:
+      - ./uploads:/app/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:16-alpine
+    container_name: whitelabel-loja-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=loja_user
+      - POSTGRES_PASSWORD=${DB_PASS:-changeme}
+      - POSTGRES_DB=loja_virtual
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ../migrations:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U loja_user -d loja_virtual"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pg_data:

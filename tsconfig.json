@@ -1,0 +1,27 @@
+{
+  "include": ["client/src/**/*", "shared/**/*", "server/**/*", "script/**/*"],
+  "exclude": ["node_modules", "build", "dist", "**/*.test.ts"],
+  "compilerOptions": {
+    "incremental": true,
+    "tsBuildInfoFile": "./node_modules/typescript/tsbuildinfo",
+    "noEmit": true,
+    // Sem `target` o tsc assume ES5 e reprova qualquer iteração de Map/Set/Buffer
+    // (TS2802) — era a origem do erro antigo em server/auth.ts. O runtime é
+    // Node 22 e o bundle do cliente é transpilado pelo Vite, então ES2022 é seguro.
+    "target": "ES2022",
+    "module": "ESNext",
+    "strict": true,
+    "lib": ["esnext", "dom", "dom.iterable"],
+    "jsx": "preserve",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "allowImportingTsExtensions": true,
+    "moduleResolution": "bundler",
+    "baseUrl": ".",
+    "types": ["node", "vite/client"],
+    "paths": {
+      "@/*": ["./client/src/*"],
+      "@shared/*": ["./shared/*"]
+    }
+  }
+}
