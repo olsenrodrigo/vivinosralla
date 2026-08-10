@@ -163,16 +163,17 @@ export default function OrderConfirmationPage() {
             </div>
           </div>
 
-          {/* Delivery address */}
-          <div className=" border border-vn-olive-100 bg-card p-5 shadow-sm">
-            <h3 className="mb-2 font-sans font-semibold text-vn-ink">Endereço de entrega</h3>
-            <p className="text-sm text-vn-ink-soft">
-              {order.shippingLogradouro}, {order.shippingNumero}
-              {order.shippingComplemento && `, ${order.shippingComplemento}`}<br />
-              {order.shippingBairro} — {order.shippingCidade}/{order.shippingEstado}<br />
-              CEP: {order.shippingCep}
-            </p>
-          </div>
+          {/* Entrega — a consulta pública não devolve o endereço completo (LGPD, INV-B) */}
+          {order.shippingCidade && (
+            <div className=" border border-vn-olive-100 bg-card p-5 shadow-sm">
+              <h3 className="mb-2 font-sans font-semibold text-vn-ink">Entrega</h3>
+              <p className="text-sm text-vn-ink-soft">
+                {order.shippingCidade}/{order.shippingEstado}
+                {order.shippingService && ` — ${order.shippingService}`}<br />
+                O endereço completo de entrega está no e-mail de confirmação.
+              </p>
+            </div>
+          )}
 
           {/* Actions */}
           <div className="flex flex-col gap-3 sm:flex-row">

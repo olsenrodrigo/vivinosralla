@@ -65,6 +65,67 @@ function mascararEmail(email: unknown): string | null {
   return `${visivel}${"•".repeat(Math.max(1, usuario.length - 2))}@${dominio}`;
 }
 
+/**
+ * Resposta de GET /api/orders/:numero — rota PÚBLICA, sem sessão.
+ *
+ * Montada por allowlist, não por remoção de campos: com remoção, toda coluna
+ * nova de `orders` passa a vazar por default. Campo novo que precise ser
+ * público entra aqui à mão, de propósito.
+ *
+ * INV-B do CLAUDE.md veta endereço nesta rota. Cidade/UF ficam porque dão
+ * contexto de entrega sem identificar; CEP, logradouro, número e bairro saem
+ * (Monte Alto é cidade pequena — bairro praticamente identifica). A cliente já
+ * tem o endereço completo: acabou de digitá-lo, e ele vai no e-mail.
+ * `notes` e `internalNotes` saem por serem texto livre da operação.
+ */
+function pedidoPublico(order: any, items: any[], history: any[], payment: any) {
+  return {
+    orderNumber: order.orderNumber,
+    status: order.status,
+    paymentStatus: order.paymentStatus,
+    paymentMethod: order.paymentMethod,
+    createdAt: order.createdAt,
+    // Só o primeiro nome: é o que a tela usa na saudação.
+    customerName: (order.customerName ?? "").split(/\s+/)[0] || null,
+    customerEmail: mascararEmail(order.customerEmail),
+    subtotal: order.subtotal,
+    discountAmount: order.discountAmount,
+    shippingAmount: order.shippingAmount,
+    total: order.total,
+    couponCode: order.couponCode,
+    shippingCidade: order.shippingCidade,
+    shippingEstado: order.shippingEstado,
+    shippingCarrier: order.shippingCarrier,
+    shippingService: order.shippingService,
+    trackingCode: order.trackingCode,
+    items: items.map((i) => ({
+      id: i.id,
+      productTitle: i.productTitle,
+      variantTitle: i.variantTitle,
+      sku: i.sku,
+      quantity: i.quantity,
+      unitPrice: i.unitPrice,
+      totalPrice: i.totalPrice,
+      imageUrl: i.imageUrl,
+      bundleLabel: i.bundleLabel,
+    })),
+    // Sem `note` nem `createdBy`: nota de admin pode ter conteúdo interno.
+    history: history.map((h) => ({ toStatus: h.toStatus, createdAt: h.createdAt })),
+    // Sem `rawResponse`: é o payload bruto do gateway.
+    payment: payment
+      ? {
+          method: payment.method,
+          status: payment.status,
+          pixQrCode: payment.pixQrCode,
+          pixQrCodeBase64: payment.pixQrCodeBase64,
+          pixExpiration: payment.pixExpiration,
+          boletoUrl: payment.boletoUrl,
+          boletoBarcode: payment.boletoBarcode,
+        }
+      : null,
+  };
+}
+
 // Limite de consulta pública de pedido: 20 por minuto por IP.
 const consultasPedido = new Map<string, { n: number; expiraEm: number }>();
 setInterval(() => {
@@ -993,12 +1054,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       storage.getOrderHistory(order.id),
       storage.getPaymentByOrderId(order.id),
     ]);
-    const { customerCpf, customerPhone, customerEmail, ...publico } = order as any;
-    return res.json({
-      ...publico,
-      customerEmail: mascararEmail(customerEmail),
-      items, history, payment,
-    });
+    return res.json(pedidoPublico(order, items, history, payment));
   });
 
   // ──────────────────────────────────────────────────────────────────────────
