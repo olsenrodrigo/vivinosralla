@@ -1,20 +1,6 @@
-import { readFileSync } from "fs";
-import { resolve } from "path";
-
-// Load .env manually (tsx doesn't auto-load it)
-try {
-  const envPath = resolve(process.cwd(), ".env");
-  const envFile = readFileSync(envPath, "utf-8");
-  for (const line of envFile.split("\n")) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#")) continue;
-    const eqIdx = trimmed.indexOf("=");
-    if (eqIdx < 0) continue;
-    const key = trimmed.slice(0, eqIdx).trim();
-    const val = trimmed.slice(eqIdx + 1).trim();
-    if (key && !process.env[key]) process.env[key] = val;
-  }
-} catch {}
+// PRIMEIRO import, sempre: povoa process.env antes de qualquer módulo da
+// aplicação ser avaliado (server/auth.ts lê JWT_SECRET em topo de módulo).
+import "./env";
 
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";

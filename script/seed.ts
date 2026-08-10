@@ -7,21 +7,9 @@
  *
  * Convenção de variantes: option1 = Tamanho, option2 = Cor.
  */
-import { readFileSync } from "fs";
-import { resolve } from "path";
-
-// Carrega o .env antes de qualquer import que toque no banco
-try {
-  const envFile = readFileSync(resolve(process.cwd(), ".env"), "utf-8");
-  for (const line of envFile.split("\n")) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#")) continue;
-    const eq = trimmed.indexOf("=");
-    if (eq < 0) continue;
-    const key = trimmed.slice(0, eq).trim();
-    if (key && !process.env[key]) process.env[key] = trimmed.slice(eq + 1).trim();
-  }
-} catch {}
+// PRIMEIRO import, sempre: povoa process.env antes de "../server/storage"
+// abrir o pool com DATABASE_URL.
+import "../server/env";
 
 import { sql } from "drizzle-orm";
 import { db } from "../server/storage";
