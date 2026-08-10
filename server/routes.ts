@@ -276,7 +276,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   app.get("/api/store/products/:slug", async (req, res) => {
-    const product = await storage.getProductBySlug(req.params.slug);
+    const product = await storage.getPublicProductBySlug(req.params.slug);
     if (!product) return res.status(404).json({ message: "Produto não encontrado" });
     const [images, variantList] = await Promise.all([
       storage.getProductImages(product.id),
@@ -309,7 +309,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   app.get("/api/store/products/:slug/reviews", async (req, res) => {
-    const product = await storage.getProductBySlug(req.params.slug);
+    const product = await storage.getPublicProductBySlug(req.params.slug);
     if (!product) return res.status(404).json({ message: "Produto não encontrado" });
     const page = Math.max(1, Number(req.query.page) || 1);
     const [reviews, aggregate, settings] = await Promise.all([
@@ -323,8 +323,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.post("/api/store/products/:slug/reviews", async (req, res) => {
     const settings = await storage.getStoreSettings();
     if ((settings as any)?.reviewsEnabled === false) return res.status(403).json({ message: "Avaliações desativadas" });
-    const product = await storage.getProductBySlug(req.params.slug);
-    if (!product || product.status !== "active") return res.status(404).json({ message: "Produto não encontrado" });
+    const product = await storage.getPublicProductBySlug(req.params.slug);
+    if (!product) return res.status(404).json({ message: "Produto não encontrado" });
     const parsed = reviewSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: "Dados inválidos" });
     const input = parsed.data;
@@ -353,7 +353,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     return res.json(await storage.listActiveBundles());
   });
   app.get("/api/store/products/:slug/related", async (req, res) => {
-    const product = await storage.getProductBySlug(req.params.slug);
+    const product = await storage.getPublicProductBySlug(req.params.slug);
     if (!product) return res.status(404).json({ message: "Produto não encontrado" });
     const [related, bundles] = await Promise.all([
       storage.getRelatedProducts(product.id),

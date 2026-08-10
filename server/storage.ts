@@ -274,6 +274,18 @@ export class DatabaseStorage {
     const [result] = await db.select().from(products).where(eq(products.slug, slug));
     return result;
   }
+  /**
+   * Versão pública: só enxerga peça ativa E publicada — o mesmo par que a
+   * vitrine passa para listProducts. Existe separada de getProductBySlug
+   * porque a importação do admin precisa continuar achando rascunho; método
+   * próprio deixa o call-site público explícito e impossibilita esquecer o filtro.
+   */
+  async getPublicProductBySlug(slug: string): Promise<Product | undefined> {
+    const [result] = await db.select().from(products).where(
+      and(eq(products.slug, slug), eq(products.status, "active"), eq(products.published, true))
+    );
+    return result;
+  }
   async createProduct(data: InsertProduct): Promise<Product> {
     const [result] = await db.insert(products).values(data).returning();
     return result;
@@ -725,7 +737,7 @@ export class DatabaseStorage {
       const p = byId.get(it.productId);
       if (!p) return { productId: it.productId, variantId: it.variantId ?? null, productSlug: "", productTitle: "(indisponível)", image: null, active: false, unitPrice: 0, quantity: it.quantity };
       const v = it.variantId ? varById.get(it.variantId) : null;
-      const active = p.status === "active" && (!it.variantId || (v && v.active));
+      const active = p.status === "active" && p.published && (!it.variantId || (v && v.active));
       return {
         productId: p.id, variantId: it.variantId ?? null, productSlug: p.slug, productTitle: p.title,
         image: null, active: !!active, unitPrice: Number(v ? v.price : p.price), quantity: it.quantity,
@@ -784,7 +796,9 @@ export class DatabaseStorage {
     const links = await db.select().from(productRelations).where(eq(productRelations.productId, productId)).orderBy(productRelations.sortOrder);
     if (!links.length) return [];
     const ids = links.map((l) => l.relatedProductId);
-    const prods = await db.select().from(products).where(and(inArray(products.id, ids), eq(products.status, "active")));
+    const prods = await db.select().from(products).where(
+      and(inArray(products.id, ids), eq(products.status, "active"), eq(products.published, true))
+    );
     const byId = new Map(prods.map((p) => [p.id, p]));
     return links.map((l) => byId.get(l.relatedProductId)).filter(Boolean);
   }
