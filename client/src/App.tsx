@@ -1,5 +1,5 @@
 import { Switch, Route, useLocation } from "wouter";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import CookieConsent from "@/components/CookieConsent";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -39,6 +39,38 @@ import PrivacidadePage from "@/pages/institucional/PrivacidadePage";
 import GuiaMedidasPage from "@/pages/institucional/GuiaMedidasPage";
 import { CartProvider } from "@/context/CartContext";
 import { AdminAuthProvider } from "@/context/AdminAuthContext";
+
+/**
+ * Toda página nova abre no topo.
+ *
+ * O wouter troca a rota sem mexer no scroll, então quem clicava numa peça lá
+ * embaixo da home caía no meio da página do produto — no "Complete o look",
+ * não na peça. O reset é só para navegação nova: no voltar/avançar o
+ * navegador devolve a posição anterior e a cliente cai de novo onde parou
+ * na vitrine.
+ */
+function RolarParaOTopo() {
+  const [location] = useLocation();
+  const voltando = useRef(false);
+
+  useEffect(() => {
+    const marcar = () => {
+      voltando.current = true;
+    };
+    window.addEventListener("popstate", marcar);
+    return () => window.removeEventListener("popstate", marcar);
+  }, []);
+
+  useEffect(() => {
+    if (voltando.current) {
+      voltando.current = false;
+      return;
+    }
+    window.scrollTo(0, 0);
+  }, [location]);
+
+  return null;
+}
 
 function Router() {
   return (
@@ -136,6 +168,7 @@ function App() {
       <TooltipProvider>
         <AdminAuthProvider>
           <CartProvider>
+            <RolarParaOTopo />
             <Router />
             <Toaster />
             {!isAdmin && <CookieConsent />}

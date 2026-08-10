@@ -49,32 +49,32 @@ export default function BundleOffer({ bundle, primaryColor = "#5B8C9B" }: { bund
   };
 
   return (
-    <div className="mt-8 rounded-xl border-2 p-5" style={{ borderColor: `${primaryColor}40`, background: `${primaryColor}0d` }}>
+    <div className="mt-8  border-2 p-5" style={{ borderColor: `${primaryColor}40`, background: `${primaryColor}0d` }}>
       <div className="flex items-center gap-2">
         <PackagePlus size={18} style={{ color: primaryColor }} />
-        <h3 className="text-lg font-bold text-gray-900">{bundle.name}</h3>
-        {savePct > 0 && <span className="rounded-full px-2.5 py-0.5 text-xs font-bold text-white" style={{ background: primaryColor }}>−{savePct}%</span>}
+        <h3 className="text-lg font-bold text-vn-ink">{bundle.name}</h3>
+        {savePct > 0 && <span className="px-2.5 py-0.5 text-xs font-bold text-white" style={{ background: primaryColor }}>−{savePct}%</span>}
       </div>
-      {bundle.description && <p className="mt-1 text-sm text-gray-500">{bundle.description}</p>}
+      {bundle.description && <p className="mt-1 text-sm text-vn-ink-soft">{bundle.description}</p>}
 
       <div className="mt-4 flex flex-wrap items-center gap-3">
         {bundle.components.map((c, i) => (
           <div key={c.productSlug + i} className="flex items-center gap-2">
-            {c.image && <img src={c.image} alt="" className="h-12 w-12 rounded-lg object-cover" />}
-            <span className="text-sm text-gray-600">{c.quantity}x {c.productTitle}</span>
-            {i < bundle.components.length - 1 && <span className="text-gray-300">+</span>}
+            {c.image && <img src={c.image} alt="" className="h-12 w-12  object-cover" />}
+            <span className="text-sm text-vn-ink-soft">{c.quantity}x {c.productTitle}</span>
+            {i < bundle.components.length - 1 && <span className="text-vn-olive-300">+</span>}
           </div>
         ))}
       </div>
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
         <div>
-          {pricing.discount > 0 && <span className="mr-2 text-sm text-gray-400 line-through">{brl(pricing.originalTotal)}</span>}
+          {pricing.discount > 0 && <span className="mr-2 text-sm text-vn-ink-soft line-through">{brl(pricing.originalTotal)}</span>}
           <span className="text-2xl font-bold" style={{ color: primaryColor }}>{brl(pricing.bundleTotal)}</span>
           {pricing.discount > 0 && <span className="ml-2 text-sm font-medium" style={{ color: primaryColor }}>economize {brl(pricing.discount)}</span>}
         </div>
         <button type="button" onClick={handleAdd} disabled={loading}
-          className="flex items-center gap-2 rounded-full px-6 py-2.5 text-sm font-semibold text-white disabled:opacity-60" style={{ background: primaryColor }}>
+          className="flex items-center gap-2 px-6 py-2.5 text-sm font-semibold text-white disabled:opacity-60" style={{ background: primaryColor }}>
           {added ? <><Check size={16} /> Adicionado</> : <><PackagePlus size={16} /> Adicionar kit</>}
         </button>
       </div>

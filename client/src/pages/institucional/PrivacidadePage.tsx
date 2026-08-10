@@ -17,10 +17,10 @@ export default function PrivacidadePage() {
     <div className="min-h-screen bg-background">
       <Navbar />
       <main>
-        <section className="section-padding">
-          <div className="container-vn max-w-4xl">
+        <section className="bleed py-16 md:py-24">
+          <div className="w-full max-w-4xl">
             <p className="eyebrow">Seus dados, nosso cuidado</p>
-            <h1 className="mt-4 text-[2.75rem] text-balance md:text-[4rem]">Política de privacidade</h1>
+            <h1 className="display-hero mt-5 max-w-4xl text-balance">Política de privacidade</h1>
             <p className="mt-6 text-[1.125rem] text-vn-ink-soft">Última atualização: 4 de agosto de 2026.</p>
             <p className="mt-5 text-[1.0625rem] leading-relaxed text-vn-ink-soft">
               Esta política explica como a VIVI NOSRALLA trata dados pessoais durante sua navegação, compra e relacionamento conosco.
@@ -28,22 +28,22 @@ export default function PrivacidadePage() {
           </div>
         </section>
 
-        <section className="section-padding bg-alt">
-          <div className="container-vn max-w-4xl space-y-10">
+        <section className="bleed py-16 md:py-24 bg-alt">
+          <div className="w-full max-w-4xl space-y-10">
             {secoes.map(([titulo, texto]) => (
               <section key={titulo} aria-labelledby={`secao-${titulo.toLowerCase().replaceAll(" ", "-")}`}>
-                <h2 id={`secao-${titulo.toLowerCase().replaceAll(" ", "-")}`} className="text-[2rem]">{titulo}</h2>
+                <h2 id={`secao-${titulo.toLowerCase().replaceAll(" ", "-")}`} className="display-md">{titulo}</h2>
                 <p className="mt-4 text-[1.0625rem] leading-relaxed text-vn-ink-soft">{texto}</p>
               </section>
             ))}
             <section aria-labelledby="direitos-titulo">
-              <h2 id="direitos-titulo" className="text-[2rem]">Seus direitos</h2>
+              <h2 id="direitos-titulo" className="display-md">Seus direitos</h2>
               <p className="mt-4 text-[1.0625rem] leading-relaxed text-vn-ink-soft">
                 Você pode solicitar confirmação e acesso aos dados, correção, anonimização, bloqueio ou eliminação quando cabíveis, portabilidade, informação sobre compartilhamentos, revisão de decisões automatizadas e revogação do consentimento. Alguns dados poderão ser mantidos para cumprir deveres legais.
               </p>
             </section>
             <section aria-labelledby="canal-titulo">
-              <h2 id="canal-titulo" className="text-[2rem]">Canal de privacidade</h2>
+              <h2 id="canal-titulo" className="display-md">Canal de privacidade</h2>
               <p className="mt-4 text-[1.0625rem] leading-relaxed text-vn-ink-soft">
                 Para exercer seus direitos ou tirar dúvidas, escreva para <a href={`mailto:${EMAIL}`} className="inline-flex min-h-11 items-center break-all font-semibold text-vn-olive-700 underline">{EMAIL}</a>. Poderemos pedir informações para confirmar sua identidade e proteger seus dados.
               </p>

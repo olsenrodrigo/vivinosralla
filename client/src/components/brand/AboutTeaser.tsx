@@ -2,73 +2,70 @@ import { Link } from "wouter";
 import { DESDE } from "@/lib/marca";
 
 const NUMEROS = [
-  { valor: `${new Date().getFullYear() - DESDE}+`, rotulo: "anos vestindo mulheres" },
-  { valor: "Monte Alto", rotulo: "loja física, SP" },
-  { valor: "Brasil", rotulo: "enviamos para todo o país" },
+  { rotulo: "Vestindo mulheres há", valor: `${new Date().getFullYear() - DESDE} anos` },
+  { rotulo: "Loja física", valor: "Monte Alto · SP" },
+  { rotulo: "Entregamos em", valor: "Todo o Brasil" },
 ];
 
-/** Prévia do "Sobre" na home — dá contexto humano antes de pedir a compra. */
+/**
+ * Manifesto da marca na home — a pausa entre dois blocos de imagem.
+ * Aqui a tipografia manda: uma única foto, texto grande e os três fatos
+ * da operação separados por fio.
+ */
 export default function AboutTeaser() {
   return (
-    <section className="section-padding">
-      <div className="container-vn">
-        <div className="grid items-center gap-10 md:grid-cols-2 md:gap-16">
-          <div className="order-2 grid grid-cols-2 gap-4 md:order-1">
-            <div className="aspect-fashion overflow-hidden rounded-2xl">
-              <img
-                src="/uploads/produtos/vn-02.webp"
-                alt="Cliente vestindo blazer de alfaiataria azul-marinho"
-                loading="lazy"
-                className="h-full w-full object-cover"
-              />
-            </div>
-            <div className="mt-10 aspect-fashion overflow-hidden rounded-2xl">
-              <img
-                src="/uploads/produtos/vn-14.webp"
-                alt="Camisa de tricoline com saia midi no provador da loja"
-                loading="lazy"
-                className="h-full w-full object-cover"
-              />
-            </div>
-          </div>
+    <section className="bg-sand" aria-labelledby="marca-titulo">
+      <div className="bleed py-16 md:py-24">
+        <div className="grid gap-10 md:grid-cols-12 md:gap-x-10 md:gap-y-12">
+          <div className="md:col-span-7 lg:col-span-6">
+            <p className="eyebrow text-vn-olive-700">A marca</p>
 
-          <div className="order-1 md:order-2">
-            <p className="eyebrow">A marca</p>
-            <h2 className="mt-4 text-[2.25rem] text-balance md:text-[2.75rem]">
-              Atemporal, para mulheres objetivas
+            <h2 id="marca-titulo" className="display-lg mt-5 text-balance">
+              Atemporal, para mulheres <em className="italic">objetivas</em>
             </h2>
 
-            <div className="mt-6 space-y-4 font-sans text-[1.0625rem] leading-relaxed text-vn-ink-soft">
+            <div className="mt-7 max-w-xl space-y-4 font-sans text-[1.0625rem] leading-relaxed text-vn-ink-soft">
               <p>
                 A VIVI NOSRALLA nasceu em {DESDE} com uma ideia simples: uma mulher não deveria
                 precisar escolher entre se sentir confortável e se sentir bonita.
               </p>
               <p>
-                Cada peça do nosso provador é escolhida pensando em quem vai vestir — do
-                caimento que respeita o corpo real ao tecido que aguenta o dia inteiro. Aqui
-                atendemos dos 30 aos 70 anos, e isso não é detalhe: é o projeto.
+                Cada peça do nosso provador é escolhida pensando em quem vai vestir — do caimento
+                que respeita o corpo real ao tecido que aguenta o dia inteiro. Aqui atendemos dos
+                30 aos 70 anos, e isso não é detalhe: é o projeto.
               </p>
             </div>
 
-            <dl className="mt-9 grid grid-cols-3 gap-5 border-t border-vn-olive-200 pt-7">
+            <Link href="/sobre" className="link-rule mt-9">
+              Nossa história
+            </Link>
+
+            <dl className="mt-12 grid grid-cols-1 border-t border-vn-olive-400/40 sm:grid-cols-3">
               {NUMEROS.map(n => (
-                <div key={n.rotulo}>
-                  <dt className="sr-only">{n.rotulo}</dt>
-                  <dd>
-                    <span className="block font-display text-2xl font-semibold text-vn-olive-700 md:text-[1.75rem]">
-                      {n.valor}
-                    </span>
-                    <span className="mt-1 block font-sans text-sm leading-snug text-vn-ink-soft">
-                      {n.rotulo}
-                    </span>
+                <div
+                  key={n.rotulo}
+                  className="border-b border-vn-olive-400/40 py-5 sm:border-b-0 sm:pr-6"
+                >
+                  <dt className="eyebrow text-vn-olive-700">{n.rotulo}</dt>
+                  <dd className="mt-2 font-display text-[1.375rem] leading-tight text-vn-ink">
+                    {n.valor}
                   </dd>
                 </div>
               ))}
             </dl>
+          </div>
 
-            <Link href="/sobre" className="btn-outline-olive mt-9 no-underline">
-              Nossa história
-            </Link>
+          <div className="md:col-span-4 md:col-start-9 lg:col-span-3 lg:col-start-10">
+            <div className="plate aspect-fashion bg-vn-sand-300">
+              <img
+                src="/uploads/produtos/vn-05.webp"
+                alt="Blusa peplum bege com saia midi oliva, no provador da loja"
+                width={523}
+                height={697}
+                loading="lazy"
+                className="h-full w-full object-cover"
+              />
+            </div>
           </div>
         </div>
       </div>

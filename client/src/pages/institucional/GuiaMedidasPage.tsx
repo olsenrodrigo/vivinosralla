@@ -16,19 +16,19 @@ export default function GuiaMedidasPage() {
     <div className="min-h-screen bg-background">
       <Navbar />
       <main>
-        <section className="section-padding">
-          <div className="container-vn">
+        <section className="bleed py-16 md:py-24">
+          <div className="w-full">
             <p className="eyebrow">Escolha com confiança</p>
-            <h1 className="mt-4 text-[2.75rem] text-balance md:text-[4rem]">Guia de medidas</h1>
+            <h1 className="display-hero mt-5 max-w-4xl text-balance">Guia de medidas</h1>
             <p className="mt-6 max-w-3xl text-[1.125rem] leading-relaxed text-vn-ink-soft">
               Compare suas medidas com a tabela para encontrar o tamanho mais próximo. A modelagem pode variar entre peças; por isso, consulte também a descrição do produto.
             </p>
           </div>
         </section>
 
-        <section className="section-padding bg-alt">
-          <div className="container-vn">
-            <div className="overflow-x-auto rounded-2xl border border-vn-olive-200 bg-white">
+        <section className="bleed py-16 md:py-24 bg-alt">
+          <div className="w-full">
+            <div className="overflow-x-auto  border border-vn-olive-200 bg-white">
               <table className="w-full min-w-[40rem] border-collapse text-left text-[1.0625rem] text-vn-ink-soft">
                 <caption className="p-5 text-left font-display text-[1.75rem] font-semibold text-vn-ink">Medidas do corpo em centímetros</caption>
                 <thead className="bg-vn-olive-100 text-vn-ink">
@@ -46,11 +46,11 @@ export default function GuiaMedidasPage() {
           </div>
         </section>
 
-        <section className="section-padding">
-          <div className="container-vn grid gap-12 md:grid-cols-2 md:gap-20">
+        <section className="bleed py-16 md:py-24">
+          <div className="w-full grid gap-12 md:grid-cols-2 md:gap-20">
             <div>
               <p className="eyebrow">Passo a passo</p>
-              <h2 className="mt-4 text-[2.25rem]">Como se medir</h2>
+              <h2 className="display-md mt-4">Como se medir</h2>
               <p className="mt-5 text-[1.0625rem] text-vn-ink-soft">Use uma fita métrica flexível, mantenha-a paralela ao chão e vista roupas leves. Não aperte a fita e, se puder, peça ajuda a alguém.</p>
             </div>
             <dl className="space-y-6 text-[1.0625rem] text-vn-ink-soft">
@@ -59,11 +59,11 @@ export default function GuiaMedidasPage() {
               <div><dt className="font-semibold text-vn-ink">Quadril</dt><dd className="mt-1">Contorne a região mais larga do quadril e dos glúteos, com os pés juntos.</dd></div>
             </dl>
           </div>
-          <div className="container-vn mt-14">
-            <div className="rounded-2xl bg-sand p-7 text-center md:p-10">
-              <h2 className="text-[2rem]">Ficou entre dois tamanhos?</h2>
+          <div className="w-full mt-14">
+            <div className="bg-sand p-7 text-center md:p-10">
+              <h2 className="display-md">Ficou entre dois tamanhos?</h2>
               <p className="mx-auto mt-4 max-w-2xl text-[1.0625rem] text-vn-ink-soft">Chame a gente no WhatsApp. Conhecemos o caimento de cada peça e ajudamos você a escolher com segurança.</p>
-              <a href={whatsappCom("Oi! Preciso de ajuda para escolher meu tamanho.")} target="_blank" rel="noopener noreferrer" className="btn-olive mt-7 no-underline">Pedir ajuda no WhatsApp</a>
+              <a href={whatsappCom("Oi! Preciso de ajuda para escolher meu tamanho.")} target="_blank" rel="noopener noreferrer" className="btn-ink mt-7 no-underline">Pedir ajuda no WhatsApp</a>
             </div>
           </div>
         </section>

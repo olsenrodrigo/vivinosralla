@@ -1,11 +1,10 @@
 import { useState, useEffect, useMemo } from "react";
 import { useParams, Link } from "wouter";
-import { ShoppingBag, Truck, Shield, RotateCcw, Ruler, MessageCircle } from "lucide-react";
+import { Truck, Shield, RotateCcw } from "lucide-react";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import WhatsAppFloat from "@/components/layout/WhatsAppFloat";
 import ProductCard, { type ProdutoCard } from "@/components/store/ProductCard";
-import { Button } from "@/components/ui/button";
 import { useCart } from "@/context/CartContext";
 import { useToast } from "@/hooks/use-toast";
 import { trackViewItem, trackAddToCart, useAnalyticsReady } from "@/lib/analytics";
@@ -32,11 +31,17 @@ const GARANTIAS = [
   { icone: Shield, texto: "Pagamento seguro" },
 ];
 
+/**
+ * Página da peça.
+ *
+ * A galeria ocupa a coluna esquerda inteira e sangra até a borda: todas as
+ * fotos empilhadas, sem miniatura e sem moldura. A coluna de compra fica
+ * grudada à direita enquanto a cliente desce pelas fotos.
+ */
 export default function ProductDetailPage() {
   const { slug } = useParams<{ slug: string }>();
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
-  const [imagemAtual, setImagemAtual] = useState(0);
   const [tamanho, setTamanho] = useState<string | null>(null);
   const [cor, setCor] = useState<string | null>(null);
   const [quantidade, setQuantidade] = useState(1);
@@ -48,7 +53,6 @@ export default function ProductDetailPage() {
 
   useEffect(() => {
     setLoading(true);
-    setImagemAtual(0);
     setQuantidade(1);
 
     fetch(`/api/store/products/${slug}`)
@@ -111,12 +115,12 @@ export default function ProductDetailPage() {
     return (
       <div className="min-h-screen bg-background">
         <Navbar />
-        <div className="container-vn grid gap-10 py-12 md:grid-cols-2">
-          <div className="aspect-fashion animate-pulse rounded-2xl bg-vn-olive-100" />
-          <div className="space-y-4">
-            <div className="h-9 w-3/4 animate-pulse rounded bg-vn-olive-100" />
-            <div className="h-7 w-1/3 animate-pulse rounded bg-vn-olive-100" />
-            <div className="h-24 animate-pulse rounded bg-vn-olive-100" />
+        <div className="grid lg:grid-cols-[1.12fr_1fr]">
+          <div className="aspect-fashion animate-pulse bg-vn-olive-100" />
+          <div className="space-y-4 px-4 py-10 md:px-8 lg:px-12">
+            <div className="h-9 w-3/4 animate-pulse bg-vn-olive-100" />
+            <div className="h-7 w-1/3 animate-pulse bg-vn-olive-100" />
+            <div className="h-24 animate-pulse bg-vn-olive-100" />
           </div>
         </div>
       </div>
@@ -127,12 +131,12 @@ export default function ProductDetailPage() {
     return (
       <div className="min-h-screen bg-background">
         <Navbar />
-        <main className="container-vn py-24 text-center">
-          <h1 className="text-3xl">Peça não encontrada</h1>
-          <p className="mt-3 font-sans text-vn-ink-soft">
+        <main className="bleed py-28 text-center">
+          <h1 className="display-lg">Peça não encontrada</h1>
+          <p className="mx-auto mt-4 max-w-md font-sans text-vn-ink-soft">
             Ela pode ter saído do catálogo. Veja o que temos agora.
           </p>
-          <Link href="/loja" className="btn-olive mt-7 no-underline">
+          <Link href="/loja" className="btn-ink mt-8 no-underline">
             Ver a loja
           </Link>
         </main>
@@ -142,7 +146,18 @@ export default function ProductDetailPage() {
   }
 
   const imagens = [...product.images].sort((a, b) => a.position - b.position);
-  const imagem = imagens[imagemAtual];
+  /*
+   * A chapa segue a proporção nativa das fotos do catálogo (3:4). Qualquer
+   * outra caixa faria o `object-cover` decepar a peça — que é justamente o
+   * que a cliente veio conferir aqui.
+   *
+   * No desktop a chapa é presa a uma fração da largura da janela e limitada
+   * a 44rem: ocupar a coluna inteira levaria a foto a mais de 800px e o
+   * original tem 523px de largura — passaria a borrar.
+   */
+  const classeChapa =
+    "plate aspect-fashion w-full shrink-0 snap-center lg:w-[min(42vw,44rem)]";
+
   const preco = variante?.price ?? product.price;
   const precoDe = variante?.compareAtPrice ?? product.compareAtPrice;
   const estoque = variante?.stockQuantity ?? product.stockQuantity;
@@ -173,80 +188,71 @@ export default function ProductDetailPage() {
     <div className="min-h-screen bg-background">
       <Navbar />
 
-      <main className="container-vn py-8 md:py-12">
-        <nav aria-label="Você está em" className="mb-7 font-sans text-sm text-vn-ink-soft">
-          <Link href="/loja" className="no-underline hover:text-vn-ink">
-            Loja
-          </Link>
-          <span className="mx-2" aria-hidden>
-            /
-          </span>
-          <span className="text-vn-ink">{product.title}</span>
-        </nav>
-
-        <div className="grid gap-10 md:grid-cols-2 lg:gap-16">
-          {/* Galeria */}
-          <div>
-            <div className="aspect-fashion overflow-hidden rounded-2xl bg-vn-olive-50">
-              {imagem ? (
-                <img
-                  src={imagem.url}
-                  alt={imagem.altText || product.title}
-                  width={523}
-                  height={697}
-                  fetchPriority="high"
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                <div className="flex h-full items-center justify-center text-vn-olive-300">
-                  <svg width="72" height="72" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" aria-hidden>
-                    <rect x="3" y="3" width="18" height="18" rx="2" />
-                    <circle cx="8.5" cy="8.5" r="1.5" />
-                    <polyline points="21 15 16 10 5 21" />
-                  </svg>
+      <main>
+        {/* A coluna da galeria encolhe até a largura da chapa (que vem da
+            altura da tela), então não sobra vão entre a foto e a compra. */}
+        <div className="grid lg:grid-cols-[max-content_minmax(0,1fr)]">
+          {/*
+            Galeria. No celular vira um carrossel que encaixa foto a foto;
+            no desktop, todas as chapas empilhadas sangrando à esquerda.
+          */}
+          {/* A galeria rola normalmente — só a coluna de compra fica grudada.
+              Uma chapa mais alta que a tela e sticky nunca revelaria o pé da
+              foto, que é onde está o comprimento da peça. */}
+          <div className="flex snap-x snap-mandatory gap-[var(--vn-gutter)] overflow-x-auto lg:grid lg:snap-none lg:grid-cols-1 lg:justify-items-start lg:gap-[var(--vn-gutter)] lg:overflow-visible">
+            {imagens.length > 0 ? (
+              imagens.map((img, i) => (
+                <div key={img.id} className={classeChapa}>
+                  <img
+                    src={img.url}
+                    alt={img.altText || `${product.title} — foto ${i + 1}`}
+                    width={523}
+                    height={697}
+                    loading={i === 0 ? "eager" : "lazy"}
+                    fetchPriority={i === 0 ? "high" : undefined}
+                    className="h-full w-full object-cover"
+                  />
                 </div>
-              )}
-            </div>
-
-            {imagens.length > 1 && (
-              <ul className="mt-3 flex gap-3 overflow-x-auto pb-1">
-                {imagens.map((img, i) => (
-                  <li key={img.id}>
-                    <button
-                      onClick={() => setImagemAtual(i)}
-                      aria-label={`Ver imagem ${i + 1} de ${imagens.length}`}
-                      aria-current={i === imagemAtual}
-                      className={`h-24 w-[4.5rem] overflow-hidden rounded-lg border-2 transition-colors ${
-                        i === imagemAtual ? "border-vn-olive-600" : "border-transparent hover:border-vn-olive-300"
-                      }`}
-                    >
-                      <img src={img.url} alt="" aria-hidden className="h-full w-full object-cover" />
-                    </button>
-                  </li>
-                ))}
-              </ul>
+              ))
+            ) : (
+              <div className="plate aspect-fashion flex w-full items-center justify-center text-vn-olive-300">
+                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" aria-hidden>
+                  <rect x="3" y="3" width="18" height="18" />
+                  <circle cx="8.5" cy="8.5" r="1.5" />
+                  <polyline points="21 15 16 10 5 21" />
+                </svg>
+              </div>
             )}
           </div>
 
-          {/* Informações e compra */}
-          <div>
-            <h1 className="text-[2rem] leading-tight md:text-[2.5rem]">{product.title}</h1>
+          {/* Compra — grudada enquanto a galeria rola. O `max-w` segura o
+              comprimento da linha de texto agora que a coluna é larga. */}
+          <div className="w-full max-w-3xl px-4 py-10 md:px-8 lg:sticky lg:top-[var(--vn-header)] lg:h-fit lg:px-12 lg:py-14 xl:px-16">
+            <nav aria-label="Você está em" className="eyebrow text-vn-ink-soft">
+              <Link href="/loja" className="text-vn-ink-soft no-underline hover:text-vn-ink">
+                Loja
+              </Link>
+              <span className="px-2" aria-hidden>
+                ·
+              </span>
+              <span className="text-vn-ink">{product.title}</span>
+            </nav>
+
+            <h1 className="display-md mt-5">{product.title}</h1>
             {product.sku && (
               <p className="mt-2 font-sans text-sm text-vn-ink-soft">Ref. {product.sku}</p>
             )}
 
-            <div className="mt-6">
+            <div className="rule mt-7 pt-6">
               <div className="flex flex-wrap items-baseline gap-3">
-                <span className="font-sans text-[2rem] font-semibold text-vn-ink">
-                  {precoBR(preco)}
-                </span>
+                <span className="font-display text-[1.875rem] text-vn-ink">{precoBR(preco)}</span>
                 {temDesconto && (
-                  <span className="font-sans text-lg text-vn-ink-soft/70 line-through">
+                  <span className="font-sans text-base text-vn-ink-soft/60 line-through">
                     {precoBR(precoDe!)}
                   </span>
                 )}
               </div>
-              <p className="mt-1.5 font-sans text-[0.95rem] text-vn-ink-soft">
+              <p className="mt-2 font-sans text-[0.95rem] text-vn-ink-soft">
                 em até 3x de {precoBR(valorParcela)} sem juros · ou {parcelas}x com juros
               </p>
               <p className="mt-1 font-sans text-[0.95rem] font-semibold text-vn-olive-700">
@@ -257,10 +263,10 @@ export default function ProductDetailPage() {
             {/* Cor */}
             {cores.length > 0 && (
               <fieldset className="mt-8">
-                <legend className="font-sans text-[0.95rem] font-semibold text-vn-ink">
-                  Cor: <span className="font-normal text-vn-ink-soft">{cor}</span>
+                <legend className="eyebrow">
+                  Cor — <span className="normal-case tracking-normal text-vn-ink">{cor}</span>
                 </legend>
-                <ul className="mt-3 flex flex-wrap gap-2.5">
+                <ul className="mt-4 flex flex-wrap gap-2.5">
                   {cores.map(c => {
                     const disponivel = corDisponivel(c);
                     return (
@@ -269,13 +275,13 @@ export default function ProductDetailPage() {
                           onClick={() => setCor(c)}
                           aria-pressed={cor === c}
                           title={disponivel ? c : `${c} — esgotado`}
-                          className={`flex h-11 w-11 items-center justify-center rounded-full border-2 transition-all ${
-                            cor === c ? "border-vn-olive-600" : "border-transparent hover:border-vn-olive-300"
+                          className={`flex h-11 w-11 items-center justify-center border transition-colors ${
+                            cor === c ? "border-vn-ink" : "border-transparent hover:border-vn-olive-300"
                           } ${disponivel ? "" : "opacity-40"}`}
                         >
                           <span
                             aria-hidden
-                            className="h-7 w-7 rounded-full border border-vn-olive-200"
+                            className="h-7 w-7 border border-vn-olive-200"
                             style={{ background: corHex(c) }}
                           />
                           {/* O leitor de tela precisa ouvir a indisponibilidade —
@@ -291,20 +297,17 @@ export default function ProductDetailPage() {
 
             {/* Tamanho */}
             {tamanhos.length > 0 && (
-              <fieldset className="mt-7">
+              <fieldset className="mt-8">
                 <div className="flex items-center justify-between gap-3">
-                  <legend className="font-sans text-[0.95rem] font-semibold text-vn-ink">
-                    Tamanho
-                  </legend>
+                  <legend className="eyebrow">Tamanho</legend>
                   <Link
                     href="/guia-de-medidas"
-                    className="inline-flex items-center gap-1.5 font-sans text-[0.9rem] font-medium text-vn-olive-700 underline underline-offset-4"
+                    className="nav-label text-vn-olive-600 underline underline-offset-4"
                   >
-                    <Ruler size={15} aria-hidden />
                     Guia de medidas
                   </Link>
                 </div>
-                <ul className="mt-3 flex flex-wrap gap-2.5">
+                <ul className="mt-4 flex flex-wrap gap-2">
                   {tamanhos.map(t => {
                     const disponivel = tamanhoDisponivel(t);
                     return (
@@ -314,10 +317,10 @@ export default function ProductDetailPage() {
                           aria-pressed={tamanho === t}
                           disabled={!disponivel}
                           title={disponivel ? t : `${t} — esgotado nesta cor`}
-                          className={`min-h-11 min-w-14 rounded-lg border px-3 font-sans font-medium transition-colors ${
+                          className={`min-h-12 min-w-14 border px-3 font-sans font-medium transition-colors ${
                             tamanho === t
-                              ? "border-vn-olive-600 bg-vn-olive-600 text-white"
-                              : "border-vn-olive-200 text-vn-ink hover:border-vn-olive-400"
+                              ? "border-vn-ink bg-vn-ink text-vn-ice"
+                              : "border-vn-olive-200 text-vn-ink hover:border-vn-ink"
                           } ${disponivel ? "" : "cursor-not-allowed text-vn-ink-soft/50 line-through"}`}
                         >
                           {t}
@@ -335,7 +338,9 @@ export default function ProductDetailPage() {
                 <span className="text-vn-ink-soft">Escolha tamanho e cor para continuar.</span>
               ) : emEstoque ? (
                 <span className="font-medium text-vn-olive-700">
-                  {estoque <= 3 ? `Últimas ${estoque} peças nesta combinação` : "Disponível para envio imediato"}
+                  {estoque <= 3
+                    ? `Últimas ${estoque} peças nesta combinação`
+                    : "Disponível para envio imediato"}
                 </span>
               ) : (
                 <span className="font-medium text-vn-wine">
@@ -345,84 +350,87 @@ export default function ProductDetailPage() {
             </p>
 
             {/* Quantidade + sacola */}
-            <div className="mt-6 flex flex-wrap items-center gap-3">
-              <div className="flex items-center rounded-full border border-vn-olive-200">
+            <div className="mt-6 flex flex-wrap items-stretch gap-3">
+              <div className="flex items-center border border-vn-olive-200">
                 <button
                   onClick={() => setQuantidade(q => Math.max(1, q - 1))}
-                  className="flex h-12 w-12 items-center justify-center rounded-l-full text-xl text-vn-ink hover:bg-vn-olive-50"
+                  className="flex h-12 w-12 items-center justify-center text-xl text-vn-ink hover:bg-vn-olive-50"
                   aria-label="Diminuir quantidade"
                 >
                   −
                 </button>
-                <span className="w-10 text-center font-sans font-medium" aria-live="polite">
+                <span className="w-10 text-center font-sans font-medium tabular-nums" aria-live="polite">
                   {quantidade}
                 </span>
                 <button
                   onClick={() => setQuantidade(q => Math.min(Math.max(estoque, 1), q + 1))}
-                  className="flex h-12 w-12 items-center justify-center rounded-r-full text-xl text-vn-ink hover:bg-vn-olive-50"
+                  className="flex h-12 w-12 items-center justify-center text-xl text-vn-ink hover:bg-vn-olive-50"
                   aria-label="Aumentar quantidade"
                 >
                   +
                 </button>
               </div>
 
-              <Button
+              <button
                 onClick={adicionar}
                 disabled={!emEstoque || cartLoading || precisaEscolher}
-                className="btn-olive h-12 min-w-56 flex-1 text-base disabled:opacity-50"
+                className="btn-ink flex-1 disabled:cursor-not-allowed disabled:opacity-40 sm:min-w-56"
               >
-                <ShoppingBag size={18} aria-hidden />
                 {emEstoque ? "Adicionar à sacola" : "Esgotado"}
-              </Button>
+              </button>
             </div>
 
             <a
               href={whatsappCom(`Oi! Tenho dúvida sobre a peça "${product.title}".`)}
               target="_blank"
               rel="noopener noreferrer"
-              className="mt-4 inline-flex items-center gap-2 font-sans text-[0.95rem] font-medium text-vn-olive-700 no-underline hover:text-vn-olive-800"
+              className="link-rule mt-8 text-vn-olive-600"
             >
-              <MessageCircle size={17} aria-hidden />
               Dúvida no tamanho? Fale com a gente
             </a>
 
-            <ul className="mt-8 space-y-3 border-t border-vn-olive-100 pt-7">
-              {GARANTIAS.map(g => (
-                <li key={g.texto} className="flex items-center gap-3 font-sans text-[0.95rem] text-vn-ink-soft">
-                  <g.icone size={18} className="shrink-0 text-vn-olive-600" aria-hidden />
-                  {g.texto}
-                </li>
-              ))}
-            </ul>
-
             {product.description && (
-              <div className="mt-8 border-t border-vn-olive-100 pt-7">
-                <h2 className="font-sans text-lg font-semibold text-vn-ink">Sobre a peça</h2>
-                <p className="mt-3 font-sans text-[1.0625rem] leading-relaxed text-vn-ink-soft">
+              <div className="rule mt-9 pt-7">
+                <h2 className="eyebrow">Sobre a peça</h2>
+                <p className="mt-4 font-sans text-[1.0625rem] leading-relaxed text-vn-ink-soft">
                   {product.description}
                 </p>
               </div>
             )}
+
+            <ul className="rule mt-9 space-y-3 pt-7">
+              {GARANTIAS.map(g => (
+                <li
+                  key={g.texto}
+                  className="flex items-center gap-3 font-sans text-[0.95rem] text-vn-ink-soft"
+                >
+                  <g.icone size={17} className="shrink-0 text-vn-olive-600" aria-hidden />
+                  {g.texto}
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
 
         {bundles.length > 0 && (
-          <div className="mt-14">
+          <div className="bleed pt-16">
             {bundles.map(b => (
-              <BundleOffer key={b.id} bundle={b} primaryColor="#6d7561" />
+              <BundleOffer key={b.id} bundle={b} primaryColor="#34372e" />
             ))}
           </div>
         )}
 
-        <div className="mt-16 border-t border-vn-olive-100 pt-12">
-          <ReviewsSection slug={product.slug} primaryColor="#6d7561" />
+        <div className="bleed pt-12">
+          <ReviewsSection slug={product.slug} primaryColor="#34372e" />
         </div>
 
         {relacionados.length > 0 && (
-          <section className="mt-16 border-t border-vn-olive-100 pt-14">
-            <p className="eyebrow">Combina com</p>
-            <h2 className="mt-3 text-[2rem] md:text-[2.5rem]">Complete o look</h2>
-            <ul className="mt-9 grid grid-cols-2 gap-x-5 gap-y-9 lg:grid-cols-4">
+          <section className="bleed py-16 md:py-24">
+            <header className="rule pt-6">
+              <p className="eyebrow">Combina com</p>
+              <h2 className="display-md mt-2.5">Complete o look</h2>
+            </header>
+            <ul className="grid-vitrine mt-9">
               {relacionados.slice(0, 4).map(p => (
                 <li key={p.id}>
                   <ProductCard product={p} />

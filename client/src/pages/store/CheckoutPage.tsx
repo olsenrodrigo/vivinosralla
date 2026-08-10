@@ -275,15 +275,15 @@ export default function CheckoutPage() {
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      <main className="container-vn max-w-5xl py-10 md:py-14">
-        <h1 className="mb-8 text-center text-[2rem] md:text-[2.5rem]">Finalizar compra</h1>
+      <main className="campos-retos container-vn max-w-5xl py-10 md:py-14">
+        <h1 className="display-lg mb-8 text-center">Finalizar compra</h1>
 
         {/* Progress */}
         <div className="mb-10 flex items-center justify-center gap-1" aria-label={`Etapa ${step} de 4`}>
           {steps.map((s, i) => (
             <div key={s.n} className="flex items-center">
               <div className="flex flex-col items-center">
-                <div className={`flex h-9 w-9 items-center justify-center rounded-full text-sm font-bold transition-colors ${step >= s.n ? "bg-vn-olive-600 text-white" : "bg-vn-olive-50 text-vn-ink-soft"}`}>
+                <div className={`flex h-9 w-9 items-center justify-center rounded-full text-sm font-bold transition-colors ${step >= s.n ? "bg-vn-ink text-vn-ice" : "bg-vn-olive-50 text-vn-ink-soft"}`}>
                   {step > s.n ? <Check size={14} /> : s.n}
                 </div>
                 <span className={`mt-1 hidden text-xs sm:block ${step >= s.n ? "font-medium text-vn-ink" : "text-vn-ink-soft"}`}>{s.label}</span>
@@ -296,7 +296,7 @@ export default function CheckoutPage() {
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
           {/* Form */}
           <div className="lg:col-span-2">
-            <div className="rounded-2xl border border-vn-olive-100 bg-card p-6 shadow-[0_1px_2px_rgb(52_55_46/0.05)] md:p-8">
+            <div className=" border border-vn-olive-100 bg-card p-6 shadow-[0_1px_2px_rgb(52_55_46/0.05)] md:p-8">
 
               {/* Step 1: Identity */}
               {step === 1 && (
@@ -337,7 +337,7 @@ export default function CheckoutPage() {
                       <span>Aceito receber contato por WhatsApp sobre este pedido, caso eu não finalize agora.</span>
                     </label>
                     <Button
-                      className="btn-olive w-full"
+                      className="btn-ink w-full"
                       onClick={() => {
                         if (!identity.name || !identity.email || !identity.phone || !identity.cpf) {
                           toast({ title: "Preencha todos os campos", variant: "destructive" }); return;
@@ -397,15 +397,15 @@ export default function CheckoutPage() {
                       <div>
                         <Label htmlFor="checkout-state">Estado *</Label>
                         <select id="checkout-state" value={address.estado} onChange={e => setAddress(a => ({...a, estado: e.target.value}))}
-                          className="mt-1 min-h-11 w-full rounded-md border border-vn-olive-200 bg-card px-3 text-vn-ink">
+                          className="mt-1 min-h-11 w-full  border border-vn-olive-200 bg-card px-3 text-vn-ink">
                           {ESTADOS.map(uf => <option key={uf} value={uf}>{uf}</option>)}
                         </select>
                       </div>
                     </div>
                     <div className="flex gap-3 pt-2">
-                      <Button variant="outline" onClick={() => setStep(1)} className="btn-outline-olive flex-1">Voltar</Button>
+                      <Button variant="outline" onClick={() => setStep(1)} className="btn-line flex-1">Voltar</Button>
                       <Button
-                        className="btn-olive flex-1"
+                        className="btn-ink flex-1"
                         onClick={() => {
                           if (!address.cep || !address.logradouro || !address.numero) {
                             toast({ title: "Preencha o endereço completo", variant: "destructive" }); return;
@@ -436,7 +436,7 @@ export default function CheckoutPage() {
                       const selected = shipping.service === opt.service;
                       const price = opt.free ? 0 : opt.finalValue;
                       return (
-                        <label key={opt.id + opt.service} className={`flex min-h-14 cursor-pointer items-center gap-3 rounded-xl border p-3 transition-colors ${selected ? "border-2 border-vn-olive-600 bg-vn-olive-50" : "border-vn-olive-200 hover:border-vn-olive-300"}`}>
+                        <label key={opt.id + opt.service} className={`flex min-h-14 cursor-pointer items-center gap-3  border p-3 transition-colors ${selected ? "border-2 border-vn-olive-600 bg-vn-olive-50" : "border-vn-olive-200 hover:border-vn-olive-300"}`}>
                           <input type="radio" name="shipping"
                             checked={selected}
                             onChange={() => setShipping({ carrier: opt.base || "SmartEnvios", service: opt.service, amount: price })}
@@ -453,8 +453,8 @@ export default function CheckoutPage() {
                       );
                     })}
                     <div className="flex gap-3 pt-2">
-                      <Button variant="outline" onClick={() => setStep(2)} className="btn-outline-olive flex-1">Voltar</Button>
-                      <Button className="btn-olive flex-1" onClick={() => setStep(4)}>
+                      <Button variant="outline" onClick={() => setStep(2)} className="btn-line flex-1">Voltar</Button>
+                      <Button className="btn-ink flex-1" onClick={() => setStep(4)}>
                         Continuar <ChevronRight size={16} className="ml-1" />
                       </Button>
                     </div>
@@ -472,14 +472,14 @@ export default function CheckoutPage() {
                       { method: "boleto" as const, icon: <FileText size={18} />, label: "Boleto Bancário", desc: `${precoBR(orderTotal)} — vence em 3 dias`, badge: null },
                       { method: "credit_card" as const, icon: <CreditCard size={18} />, label: "Cartão de Crédito", desc: `Até 12x`, badge: null },
                     ].filter(opt => !payConfig || payConfig[opt.method]?.enabled).map(opt => (
-                      <label key={opt.method} className={`flex min-h-14 cursor-pointer items-center gap-3 rounded-xl border p-3 transition-colors ${paymentMethod === opt.method ? "border-2 border-vn-olive-600 bg-vn-olive-50" : "border-vn-olive-200 hover:border-vn-olive-300"}`}>
+                      <label key={opt.method} className={`flex min-h-14 cursor-pointer items-center gap-3  border p-3 transition-colors ${paymentMethod === opt.method ? "border-2 border-vn-olive-600 bg-vn-olive-50" : "border-vn-olive-200 hover:border-vn-olive-300"}`}>
                         <input type="radio" name="payment" value={opt.method} checked={paymentMethod === opt.method}
                           onChange={() => setPaymentMethod(opt.method)} className="h-5 w-5 accent-vn-olive-600" />
                         <span className="text-vn-olive-600">{opt.icon}</span>
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
                             <p className="text-sm font-medium text-vn-ink">{opt.label}</p>
-                            {opt.badge && <span className="rounded-full bg-vn-olive-100 px-2 py-0.5 text-xs text-vn-olive-700">{opt.badge}</span>}
+                            {opt.badge && <span className="bg-vn-olive-100 px-2 py-0.5 text-xs text-vn-olive-700">{opt.badge}</span>}
                           </div>
                           <p className="text-sm text-vn-ink-soft">{opt.desc}</p>
                         </div>
@@ -488,19 +488,19 @@ export default function CheckoutPage() {
                   </div>
 
                   {/* Coupon */}
-                  <div className="mb-4 rounded-xl bg-alt p-4">
+                  <div className="mb-4  bg-alt p-4">
                     <Label htmlFor="coupon-code" className="mb-2 block text-sm font-medium text-vn-ink">Cupom de desconto</Label>
                     <div className="flex gap-2">
                       <Input id="coupon-code" value={couponCode} onChange={e => setCouponCode(e.target.value.toUpperCase())} className="min-h-11 flex-1 border-vn-olive-200 bg-card" />
-                      <Button type="button" variant="outline" className="btn-outline-olive" onClick={() => applyCoupon()} disabled={couponLoading}>Aplicar</Button>
+                      <Button type="button" variant="outline" className="btn-line" onClick={() => applyCoupon()} disabled={couponLoading}>Aplicar</Button>
                     </div>
                     {couponDiscount > 0 && <p className="mt-2 text-sm text-vn-olive-700" aria-live="polite">✓ Desconto de {precoBR(couponDiscount)} aplicado!</p>}
                   </div>
 
                   <div className="flex gap-3">
-                    <Button variant="outline" onClick={() => setStep(3)} className="btn-outline-olive flex-1">Voltar</Button>
+                    <Button variant="outline" onClick={() => setStep(3)} className="btn-line flex-1">Voltar</Button>
                     <Button
-                      className="btn-olive flex-1"
+                      className="btn-ink flex-1"
                       onClick={handlePlaceOrder}
                       disabled={loading}
                     >
@@ -517,7 +517,7 @@ export default function CheckoutPage() {
                         type="button"
                         onClick={handleWhatsApp}
                         disabled={loading}
-                        className="btn-outline-olive w-full"
+                        className="btn-line w-full"
                       >
                         Finalizar pelo WhatsApp
                       </Button>
@@ -529,12 +529,12 @@ export default function CheckoutPage() {
           </div>
 
           {/* Order summary */}
-          <aside className="sticky top-28 h-fit rounded-2xl bg-alt p-5">
+          <aside className="sticky top-[calc(var(--vn-header)+1.5rem)] h-fit  bg-alt p-5">
             <h3 className="mb-4 font-sans text-lg font-semibold text-vn-ink">Resumo</h3>
             <div className="space-y-2 text-sm">
               {cart?.items.map(item => (
                 <div key={item.id} className="flex gap-2">
-                  <div className="aspect-fashion w-12 flex-shrink-0 overflow-hidden rounded-lg bg-vn-olive-50">
+                  <div className="aspect-fashion w-12 flex-shrink-0 overflow-hidden  bg-vn-olive-50">
                     {item.mainImage && <img src={item.mainImage} alt={item.productTitle} className="h-full w-full object-cover" />}
                   </div>
                   <div className="flex-1 text-xs">

@@ -10,8 +10,17 @@
  *
  * Cor principal: oliva #878f79 · Secundária: gelo #f1f1e7 · Areia #e4dcc9
  * Tipografia oficial: Dream Avenue (display, licenciada) + Quicksand (Google)
- * No site, Cormorant Garamond substitui a Dream Avenue nos títulos — a
+ * No site, Playfair Display substitui a Dream Avenue nos títulos — a
  * logomarca em si entra sempre como SVG vetorizado, nunca como webfont.
+ *
+ * ── Conceito visual (2026) ───────────────────────────────────────────────
+ * "Lookbook, não catálogo." A vitrine é montada como uma revista de moda:
+ *  · nada de caixa central — as imagens sangram até a borda da tela;
+ *  · chapas (plates) de foto sem raio e sem sombra, separadas por um fio;
+ *  · a interface fica quase acromática (papel + tinta) para que a COR venha
+ *    da roupa; o oliva desce de "cor de botão" para fio, rótulo e hover;
+ *  · caixa-alta com tracking de etiqueta de roupa em toda a navegação.
+ * A paleta e a logomarca do brandbook seguem intactas.
  * ============================================================================
  */
 
@@ -75,7 +84,7 @@
   --font-body: "Quicksand", ui-sans-serif, system-ui, sans-serif;
   --font-heading: "Playfair Display", Georgia, ui-serif, serif;
 
-  /* ── Raios: eco dos cantos do app icon ── */
+  /* ── Raios: só o backoffice (shadcn) ainda usa; a vitrine é reta ── */
   --radius: 0.75rem;
   --radius-sm: 0.5rem;
   --radius-md: 0.75rem;
@@ -85,6 +94,10 @@
   /* ── Sombras quentes (nunca cinza puro) ── */
   --shadow-card: 0 1px 2px rgb(52 55 46 / 0.05), 0 10px 30px rgb(52 55 46 / 0.07);
   --shadow-card-hover: 0 2px 4px rgb(52 55 46 / 0.06), 0 16px 40px rgb(52 55 46 / 0.12);
+
+  /* ── Medidas do layout editorial ── */
+  --vn-gutter: 2px; /* fio entre chapas de foto */
+  --vn-header: 4.75rem;
 }
 
 @layer base {
@@ -104,9 +117,9 @@
   h3,
   h4 {
     font-family: var(--font-display);
-    font-weight: 500;
-    letter-spacing: -0.01em;
-    line-height: 1.12;
+    font-weight: 400;
+    letter-spacing: -0.018em;
+    line-height: 1.04;
     color: var(--color-vn-ink);
   }
 
@@ -123,13 +136,13 @@
 
   /* Foco sempre visível — navegação por teclado */
   :focus-visible {
-    outline: 2px solid var(--color-vn-olive-500);
-    outline-offset: 2px;
-    border-radius: 2px;
+    outline: 2px solid var(--color-vn-olive-600);
+    outline-offset: 3px;
+    border-radius: 0;
   }
 
   ::selection {
-    background: var(--color-vn-olive-200);
+    background: var(--color-vn-sand);
     color: var(--color-vn-ink);
   }
 
@@ -146,48 +159,125 @@
     text-wrap: balance;
   }
 
+  /*
+   * ── Larguras ──
+   * `.bleed` é o novo padrão: ocupa a tela inteira e só reserva a margem de
+   * segurança lateral. `.container-vn` continua existindo para os fluxos de
+   * leitura e de compra (carrinho, checkout, institucional), onde uma linha
+   * de texto larga demais atrapalha.
+   */
+  .bleed {
+    @apply w-full px-4 md:px-8 lg:px-10;
+  }
+
   .container-vn {
-    @apply mx-auto w-full px-5 md:px-8;
-    max-width: 80rem;
+    @apply mx-auto w-full px-4 md:px-8;
+    max-width: 72rem;
+  }
+
+  /* Coluna de leitura confortável (65–75 caracteres) */
+  .measure {
+    max-width: 34rem;
   }
 
   .section-padding {
-    @apply py-16 md:py-24;
-  }
-
-  /* Rótulo de seção — mesmo tracking largo da assinatura do logo */
-  .eyebrow {
-    @apply font-sans font-semibold uppercase;
-    font-size: 0.8125rem;
-    letter-spacing: 0.18em;
-    color: var(--color-vn-olive-600);
+    @apply py-20 md:py-28;
   }
 
   /*
-   * Botão em pílula, ecoando os cantos arredondados do ícone da marca.
-   * A base é compartilhada por lista de seletores — o Tailwind 4 não permite
-   * `@apply` de uma classe customizada dentro de @layer.
+   * ── Rótulo de etiqueta ──
+   * Caixa-alta com tracking largo: é a assinatura tipográfica da navegação,
+   * dos rótulos de seção e dos botões. Ecoa a assinatura do logo.
+   */
+  .eyebrow {
+    @apply font-sans font-semibold uppercase;
+    font-size: 0.6875rem;
+    letter-spacing: 0.24em;
+    line-height: 1.4;
+    color: var(--color-vn-olive-600);
+  }
+
+  /* Mesma etiqueta, sobre fundo escuro. O Tailwind 4 não deixa dar
+     `@apply` numa utility customizada, então a regra é repetida. */
+  .eyebrow-ice {
+    @apply font-sans font-semibold uppercase;
+    font-size: 0.6875rem;
+    letter-spacing: 0.24em;
+    line-height: 1.4;
+    color: rgb(241 241 231 / 0.85);
+  }
+
+  /* Item de navegação / rótulo de interface */
+  .nav-label {
+    @apply font-sans font-semibold uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.16em;
+  }
+
+  /* ── Escala de display ── */
+  .display-hero {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: clamp(2.375rem, 5.6vw, 4.75rem);
+    line-height: 0.98;
+    letter-spacing: -0.025em;
+  }
+
+  .display-lg {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: clamp(1.875rem, 3.6vw, 3rem);
+    line-height: 1.04;
+    letter-spacing: -0.02em;
+  }
+
+  .display-md {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: clamp(1.5rem, 2.4vw, 2.125rem);
+    line-height: 1.1;
+    letter-spacing: -0.015em;
+  }
+
+  /*
+   * ── Botões ──
+   * Retangulares, caixa-alta, tracking de etiqueta. A altura mínima de 3rem
+   * mantém o alvo de toque confortável para o público da marca.
    *
    * ATENÇÃO: estas classes definem `display: inline-flex`. Como estão na mesma
    * camada das utilities do Tailwind, elas vencem um `hidden`/`lg:hidden`
    * aplicado no mesmo elemento — para esconder um botão, ponha a classe de
    * visibilidade num wrapper.
    */
-  .btn-pill,
-  .btn-olive,
+  .btn-ink,
+  .btn-line,
   .btn-wine,
-  .btn-outline-olive {
-    @apply inline-flex items-center justify-center gap-2 rounded-full font-sans font-semibold transition-colors;
-    min-height: 2.875rem; /* alvo de toque confortável */
+  .btn-ice,
+  .btn-ice-line {
+    @apply inline-flex items-center justify-center gap-2.5 font-sans font-semibold uppercase transition-colors;
+    font-size: 0.75rem;
+    letter-spacing: 0.16em;
+    min-height: 3rem;
     padding-inline: 1.75rem;
+    border-radius: 0;
   }
 
-  .btn-olive {
-    background: var(--color-vn-olive-600);
-    color: #fff;
+  .btn-ink {
+    background: var(--color-vn-ink);
+    color: var(--color-vn-ice);
   }
-  .btn-olive:hover {
-    background: var(--color-vn-olive-700);
+  .btn-ink:hover {
+    background: var(--color-vn-olive-800);
+  }
+
+  .btn-line {
+    color: var(--color-vn-ink);
+    border: 1px solid var(--color-vn-ink);
+    background: transparent;
+  }
+  .btn-line:hover {
+    background: var(--color-vn-ink);
+    color: var(--color-vn-ice);
   }
 
   .btn-wine {
@@ -198,13 +288,86 @@
     background: var(--color-vn-wine-light);
   }
 
-  .btn-outline-olive {
-    color: var(--color-vn-olive-700);
-    border: 1px solid var(--color-vn-olive-300);
-    background: transparent;
+  /* Sobre fundo escuro */
+  .btn-ice {
+    background: var(--color-vn-ice);
+    color: var(--color-vn-ink);
   }
-  .btn-outline-olive:hover {
+  .btn-ice:hover {
+    background: #fff;
+  }
+
+  .btn-ice-line {
+    background: transparent;
+    color: var(--color-vn-ice);
+    border: 1px solid rgb(241 241 231 / 0.4);
+  }
+  .btn-ice-line:hover {
+    background: rgb(241 241 231 / 0.12);
+  }
+
+  /*
+   * Link de ação: rótulo em caixa-alta com um fio embaixo que se estende
+   * no hover. Substitui a seta genérica.
+   */
+  .link-rule {
+    @apply relative inline-block font-sans font-semibold uppercase no-underline;
+    font-size: 0.75rem;
+    letter-spacing: 0.16em;
+    color: var(--color-vn-ink);
+    padding-bottom: 0.35rem;
+  }
+  .link-rule::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    height: 1px;
+    width: 2.25rem;
+    background: currentColor;
+    transition: width 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .link-rule:hover::after,
+  .link-rule:focus-visible::after {
+    width: 100%;
+  }
+
+  /* ── Chapas de foto: sem raio, sem sombra, fundo de espera oliva claro ── */
+  .plate {
+    @apply relative overflow-hidden;
     background: var(--color-vn-olive-50);
+    border-radius: 0;
+  }
+
+  /*
+   * Proporção retrato de moda — padrão de toda foto de produto.
+   * É exatamente a proporção nativa do acervo (523×697), então o
+   * `object-cover` das chapas preenche sem cortar nada da peça.
+   * Mudar este valor volta a decepar as fotos.
+   */
+  .aspect-fashion {
+    aspect-ratio: 3 / 4;
+  }
+
+  /*
+   * ── Grade de vitrine ──
+   * Coladas: o fio de 2px entre as fotos é o que dá o ar de contato de
+   * fotografia. O nome e o preço respiram embaixo da imagem.
+   */
+  .grid-vitrine {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--vn-gutter) var(--vn-gutter);
+  }
+  @media (min-width: 768px) {
+    .grid-vitrine {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+  @media (min-width: 1280px) {
+    .grid-vitrine {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
   }
 
   .bg-alt {
@@ -215,27 +378,44 @@
     background-color: var(--color-vn-sand);
   }
 
-  /* Proporção retrato de moda — padrão de toda foto de produto */
-  .aspect-fashion {
-    aspect-ratio: 3 / 4;
+  /* Fio da marca — separador de seção */
+  .rule {
+    border-top: 1px solid var(--color-vn-olive-200);
+  }
+
+  .rule-ice {
+    border-top: 1px solid rgb(241 241 231 / 0.22);
   }
 
   /*
-   * Divisor da marca: o traço fino que liga o "v" ao "n" no monograma,
-   * traduzido em separador de seção.
+   * A vitrine é reta. Os campos herdados do shadcn (Input, Textarea) trazem
+   * o raio do design system compartilhado, então quem marca `.campos-retos`
+   * zera o raio só nos seus descendentes — o backoffice continua arredondado.
    */
-  .divider-vn {
-    @apply flex items-center justify-center gap-3;
-    color: var(--color-vn-olive-300);
+  .campos-retos :is(input, textarea, select) {
+    border-radius: 0;
   }
-  .divider-vn::before,
-  .divider-vn::after {
-    content: "";
-    height: 1px;
-    flex: 1 1 0;
-    background: currentColor;
-    max-width: 5rem;
+}
+
+/*
+ * ── Faixa de recados ──
+ * O único movimento contínuo do site: uma faixa de avisos reais (frete,
+ * troca, atendimento) que desliza devagar. Congela para quem pediu menos
+ * movimento no sistema.
+ */
+@keyframes vn-marquee {
+  from {
+    transform: translateX(0);
   }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.marquee-track {
+  display: flex;
+  width: max-content;
+  animation: vn-marquee 46s linear infinite;
 }
 
 /* Respeita quem pediu menos movimento no sistema */
@@ -247,5 +427,10 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+
+  .marquee-track {
+    animation: none;
+    transform: none;
   }
 }

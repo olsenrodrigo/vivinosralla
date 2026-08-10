@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { ShoppingBag, Menu, X, Search, ChevronDown } from "lucide-react";
+import { ShoppingBag, Menu, X, Search } from "lucide-react";
 import { useCart } from "@/context/CartContext";
 import Logo from "@/components/brand/Logo";
 
@@ -13,17 +13,24 @@ interface Categoria {
 
 const LINKS_FIXOS = [
   { href: "/sobre", label: "Sobre" },
-  { href: "/guia-de-medidas", label: "Guia de medidas" },
+  { href: "/guia-de-medidas", label: "Medidas" },
   { href: "/contato", label: "Contato" },
 ];
 
-/** Cabeçalho único do site e da loja. */
+/**
+ * Cabeçalho único do site e da loja.
+ *
+ * Fino, reto e quase sem cor: a única coisa que separa o cabeçalho da página
+ * é um fio. Busca e categorias abrem em painéis de largura total, no lugar
+ * de dropdowns — a navegação também é parte do lookbook.
+ */
 export default function Navbar() {
   const [menuAberto, setMenuAberto] = useState(false);
-  const [categoriasAbertas, setCategoriasAbertas] = useState(false);
+  const [painel, setPainel] = useState<"categorias" | "busca" | null>(null);
   const [busca, setBusca] = useState("");
   const { itemCount } = useCart();
   const [location, navigate] = useLocation();
+  const campoBusca = useRef<HTMLInputElement>(null);
 
   const { data: categorias = [] } = useQuery<Categoria[]>({
     queryKey: ["/api/store/categories"],
@@ -31,147 +38,176 @@ export default function Navbar() {
     staleTime: 5 * 60_000,
   });
 
-  // Fecha os menus a cada troca de rota
+  // Fecha os painéis a cada troca de rota
   useEffect(() => {
     setMenuAberto(false);
-    setCategoriasAbertas(false);
+    setPainel(null);
   }, [location]);
+
+  // Abrir a busca sem o cursor dentro do campo obriga um clique extra
+  useEffect(() => {
+    if (painel === "busca") campoBusca.current?.focus();
+  }, [painel]);
+
+  useEffect(() => {
+    const aoTeclar = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setPainel(null);
+    };
+    window.addEventListener("keydown", aoTeclar);
+    return () => window.removeEventListener("keydown", aoTeclar);
+  }, []);
 
   const buscar = (e: React.FormEvent) => {
     e.preventDefault();
     const q = busca.trim();
     navigate(q ? `/loja?busca=${encodeURIComponent(q)}` : "/loja");
+    setPainel(null);
     setMenuAberto(false);
   };
 
   return (
-    <header className="sticky top-0 z-50 border-b border-vn-olive-100 bg-[#faf9f3]/95 backdrop-blur-md supports-[backdrop-filter]:bg-[#faf9f3]/85">
-      <div className="container-vn">
-        <div className="flex h-20 items-center justify-between gap-4">
+    <header className="sticky top-0 z-50 border-b border-vn-olive-200 bg-[#faf9f3]">
+      <div className="bleed">
+        <div className="flex h-[var(--vn-header)] items-center justify-between gap-6">
           <Link href="/" className="shrink-0" aria-label="Vivi Nosralla — página inicial">
             <Logo variante="lockup" tom="oliva" className="h-11 md:h-12" />
           </Link>
 
           {/* Navegação — desktop */}
-          <nav className="hidden items-center gap-1 lg:flex" aria-label="Principal">
-            <Link
-              href="/loja"
-              className="rounded-full px-4 py-2 font-sans text-[0.95rem] font-medium text-vn-ink no-underline transition-colors hover:bg-vn-olive-50"
-            >
+          <nav className="hidden items-center gap-8 lg:flex" aria-label="Principal">
+            <Link href="/loja" className="nav-label text-vn-ink no-underline hover:text-vn-olive-600">
               Loja
             </Link>
 
-            <div
-              className="relative"
-              onMouseEnter={() => setCategoriasAbertas(true)}
-              onMouseLeave={() => setCategoriasAbertas(false)}
+            <button
+              type="button"
+              onClick={() => setPainel(p => (p === "categorias" ? null : "categorias"))}
+              aria-expanded={painel === "categorias"}
+              className={`nav-label transition-colors ${
+                painel === "categorias" ? "text-vn-olive-600" : "text-vn-ink hover:text-vn-olive-600"
+              }`}
             >
-              <button
-                type="button"
-                onClick={() => setCategoriasAbertas(v => !v)}
-                aria-expanded={categoriasAbertas}
-                className="flex items-center gap-1 rounded-full px-4 py-2 font-sans text-[0.95rem] font-medium text-vn-ink transition-colors hover:bg-vn-olive-50"
-              >
-                Categorias
-                <ChevronDown size={16} aria-hidden />
-              </button>
-              {categoriasAbertas && (
-                <div className="absolute left-0 top-full w-60 overflow-hidden rounded-xl border border-vn-olive-100 bg-white py-2 shadow-[0_16px_40px_rgb(52_55_46/0.12)]">
-                  {categorias.map(c => (
-                    <Link
-                      key={c.id}
-                      href={`/loja?categoria=${c.slug}`}
-                      className="block px-5 py-2.5 font-sans text-[0.95rem] text-vn-ink no-underline transition-colors hover:bg-vn-olive-50"
-                    >
-                      {c.name}
-                    </Link>
-                  ))}
-                </div>
-              )}
-            </div>
+              Categorias
+            </button>
 
             {LINKS_FIXOS.map(l => (
               <Link
                 key={l.href}
                 href={l.href}
-                className="rounded-full px-4 py-2 font-sans text-[0.95rem] font-medium text-vn-ink no-underline transition-colors hover:bg-vn-olive-50"
+                className="nav-label text-vn-ink no-underline hover:text-vn-olive-600"
               >
                 {l.label}
               </Link>
             ))}
           </nav>
 
-          {/* Busca — tablet e acima */}
-          <form onSubmit={buscar} className="hidden max-w-xs flex-1 md:flex" role="search">
-            <div className="relative w-full">
-              <label htmlFor="busca-topo" className="sr-only">
-                Buscar produtos
-              </label>
-              <input
-                id="busca-topo"
-                value={busca}
-                onChange={e => setBusca(e.target.value)}
-                placeholder="Buscar peças…"
-                className="w-full rounded-full border border-vn-olive-200 bg-white py-2.5 pl-4 pr-10 font-sans text-[0.95rem] text-vn-ink placeholder:text-vn-ink-soft/70"
-              />
-              <button
-                type="submit"
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-vn-olive-600"
-                aria-label="Buscar"
-              >
-                <Search size={17} />
-              </button>
-            </div>
-          </form>
-
           <div className="flex shrink-0 items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setPainel(p => (p === "busca" ? null : "busca"))}
+              aria-expanded={painel === "busca"}
+              aria-label="Buscar peças"
+              className="p-2.5 text-vn-ink transition-colors hover:text-vn-olive-600"
+            >
+              <Search size={19} aria-hidden />
+            </button>
+
             <Link
               href="/loja/carrinho"
-              className="relative rounded-full p-2.5 no-underline transition-colors hover:bg-vn-olive-50"
-              aria-label={`Carrinho${itemCount > 0 ? ` — ${itemCount} ${itemCount === 1 ? "item" : "itens"}` : " vazio"}`}
+              className="flex items-center gap-1.5 p-2.5 text-vn-ink no-underline transition-colors hover:text-vn-olive-600"
+              aria-label={`Sacola${itemCount > 0 ? ` — ${itemCount} ${itemCount === 1 ? "item" : "itens"}` : " vazia"}`}
             >
-              <ShoppingBag size={22} className="text-vn-ink" aria-hidden />
-              {itemCount > 0 && (
-                <span className="absolute right-0 top-0 flex h-5 min-w-5 items-center justify-center rounded-full bg-vn-wine px-1 font-sans text-[0.7rem] font-bold text-white">
-                  {itemCount > 9 ? "9+" : itemCount}
-                </span>
-              )}
+              <ShoppingBag size={19} aria-hidden />
+              <span className="font-sans text-[0.75rem] font-semibold tabular-nums" aria-hidden>
+                {itemCount}
+              </span>
             </Link>
 
             <button
-              className="rounded-full p-2.5 transition-colors hover:bg-vn-olive-50 lg:hidden"
+              className="p-2.5 text-vn-ink transition-colors hover:text-vn-olive-600 lg:hidden"
               onClick={() => setMenuAberto(v => !v)}
               aria-expanded={menuAberto}
               aria-label={menuAberto ? "Fechar menu" : "Abrir menu"}
             >
-              {menuAberto ? <X size={22} aria-hidden /> : <Menu size={22} aria-hidden />}
+              {menuAberto ? <X size={20} aria-hidden /> : <Menu size={20} aria-hidden />}
             </button>
           </div>
         </div>
       </div>
 
+      {/* Painel de busca — largura total */}
+      {painel === "busca" && (
+        <div className="border-t border-vn-olive-200 bg-[#faf9f3]">
+          <div className="bleed py-8 md:py-12">
+            <form onSubmit={buscar} role="search" className="mx-auto max-w-3xl">
+              <label htmlFor="busca-topo" className="eyebrow">
+                O que você procura
+              </label>
+              <div className="mt-3 flex items-end gap-4 border-b border-vn-ink pb-2">
+                <input
+                  id="busca-topo"
+                  ref={campoBusca}
+                  value={busca}
+                  onChange={e => setBusca(e.target.value)}
+                  placeholder="Blazer, vestido, tricô…"
+                  className="w-full bg-transparent font-display text-[1.75rem] text-vn-ink outline-none placeholder:text-vn-olive-300 md:text-[2.25rem]"
+                />
+                <button type="submit" className="nav-label shrink-0 pb-2 text-vn-olive-600">
+                  Buscar
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Painel de categorias — largura total */}
+      {painel === "categorias" && categorias.length > 0 && (
+        <div className="hidden border-t border-vn-olive-200 bg-[#faf9f3] lg:block">
+          <div className="bleed py-10">
+            <p className="eyebrow">Escolha por categoria</p>
+            <ul className="mt-6 grid grid-cols-4 gap-x-8 gap-y-1">
+              {categorias.map(c => (
+                <li key={c.id}>
+                  <Link
+                    href={`/loja?categoria=${c.slug}`}
+                    className="block py-2 font-display text-[1.375rem] text-vn-ink no-underline transition-colors hover:text-vn-olive-600"
+                  >
+                    {c.name}
+                  </Link>
+                </li>
+              ))}
+              <li>
+                <Link
+                  href="/loja"
+                  className="block py-2 font-display text-[1.375rem] italic text-vn-olive-600 no-underline hover:text-vn-ink"
+                >
+                  Ver tudo
+                </Link>
+              </li>
+            </ul>
+          </div>
+        </div>
+      )}
+
       {/* Menu mobile */}
       {menuAberto && (
-        <div className="border-t border-vn-olive-100 bg-[#faf9f3] lg:hidden">
-          <div className="container-vn py-5">
-            <form onSubmit={buscar} className="mb-5 md:hidden" role="search">
-              <label htmlFor="busca-mobile" className="sr-only">
-                Buscar produtos
+        <div className="border-t border-vn-olive-200 bg-[#faf9f3] lg:hidden">
+          <div className="bleed py-6">
+            <form onSubmit={buscar} role="search" className="mb-7">
+              <label htmlFor="busca-mobile" className="eyebrow">
+                Buscar
               </label>
-              <div className="relative">
+              <div className="mt-2 flex items-center gap-3 border-b border-vn-ink pb-2">
                 <input
                   id="busca-mobile"
                   value={busca}
                   onChange={e => setBusca(e.target.value)}
-                  placeholder="Buscar peças…"
-                  className="w-full rounded-full border border-vn-olive-200 bg-white py-3 pl-4 pr-11 font-sans text-vn-ink"
+                  placeholder="Blazer, vestido, tricô…"
+                  className="w-full bg-transparent font-display text-xl text-vn-ink outline-none placeholder:text-vn-olive-300"
                 />
-                <button
-                  type="submit"
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-vn-olive-600"
-                  aria-label="Buscar"
-                >
-                  <Search size={18} />
+                <button type="submit" aria-label="Buscar" className="text-vn-olive-600">
+                  <Search size={19} />
                 </button>
               </div>
             </form>
@@ -179,7 +215,7 @@ export default function Navbar() {
             <nav className="flex flex-col" aria-label="Principal">
               <Link
                 href="/loja"
-                className="border-b border-vn-olive-100 py-3.5 font-sans font-semibold text-vn-ink no-underline"
+                className="rule py-3.5 font-display text-xl text-vn-ink no-underline"
               >
                 Ver toda a loja
               </Link>
@@ -187,17 +223,13 @@ export default function Navbar() {
                 <Link
                   key={c.id}
                   href={`/loja?categoria=${c.slug}`}
-                  className="border-b border-vn-olive-100 py-3.5 font-sans text-vn-ink no-underline"
+                  className="rule py-3.5 font-display text-xl text-vn-ink no-underline"
                 >
                   {c.name}
                 </Link>
               ))}
               {LINKS_FIXOS.map(l => (
-                <Link
-                  key={l.href}
-                  href={l.href}
-                  className="border-b border-vn-olive-100 py-3.5 font-sans text-vn-ink no-underline"
-                >
+                <Link key={l.href} href={l.href} className="rule py-3.5 nav-label text-vn-ink no-underline">
                   {l.label}
                 </Link>
               ))}

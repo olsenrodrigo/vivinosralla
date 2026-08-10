@@ -1,7 +1,15 @@
 import { Link } from "wouter";
-import { Instagram, MapPin, MessageCircle, Mail } from "lucide-react";
 import Logo from "@/components/brand/Logo";
-import { WHATSAPP_URL, WHATSAPP_LABEL, INSTAGRAM_URL, INSTAGRAM_HANDLE, EMAIL, CIDADE } from "@/lib/marca";
+import {
+  WHATSAPP_URL,
+  WHATSAPP_LABEL,
+  INSTAGRAM_URL,
+  INSTAGRAM_HANDLE,
+  EMAIL,
+  CIDADE,
+  FRETE_GRATIS_ACIMA,
+  precoBR,
+} from "@/lib/marca";
 
 const INSTITUCIONAL = [
   { href: "/sobre", label: "Sobre a marca" },
@@ -15,29 +23,28 @@ const AJUDA = [
   { href: "/privacidade", label: "Política de privacidade" },
 ];
 
+/** Rodapé editorial: fios finos, caixa-alta e nada de caixa central. */
 export default function Footer() {
   return (
-    <footer className="bg-vn-olive-700 text-vn-ice">
-      <div className="container-vn py-14 md:py-16">
-        <div className="grid gap-10 md:grid-cols-[1.3fr_1fr_1fr_1.2fr]">
-          {/* Marca — ícone do logo, conforme o brandbook */}
-          <div>
-            <Logo variante="icone" tom="gelo" className="h-14" />
-            <p className="mt-5 max-w-xs font-sans text-[0.95rem] leading-relaxed text-vn-ice/90">
-              Moda, beleza e poder desde 2017. Peças atemporais para mulheres objetivas.
+    <footer className="border-t border-vn-olive-200 bg-background">
+      <div className="bleed py-14 md:py-16">
+        <div className="grid gap-10 md:grid-cols-12">
+          <div className="md:col-span-4">
+            <Logo variante="lockup" tom="oliva" className="h-10" />
+            <p className="measure mt-6 font-sans text-[0.95rem] leading-relaxed text-vn-ink-soft">
+              Moda, beleza e poder desde 2017. Peças atemporais para mulheres objetivas, escolhidas
+              peça a peça em Monte Alto.
             </p>
           </div>
 
-          <nav aria-label="Institucional">
-            <h2 className="font-sans text-[0.8125rem] font-semibold uppercase tracking-[0.18em] text-vn-ice/90">
-              Institucional
-            </h2>
-            <ul className="mt-4 space-y-2.5">
+          <nav aria-label="Institucional" className="md:col-span-2">
+            <h2 className="eyebrow">Institucional</h2>
+            <ul className="mt-5 space-y-3">
               {INSTITUCIONAL.map(l => (
                 <li key={l.href}>
                   <Link
                     href={l.href}
-                    className="font-sans text-[0.95rem] text-vn-ice no-underline transition-opacity hover:opacity-75"
+                    className="font-sans text-[0.95rem] text-vn-ink no-underline transition-colors hover:text-vn-olive-600"
                   >
                     {l.label}
                   </Link>
@@ -46,16 +53,14 @@ export default function Footer() {
             </ul>
           </nav>
 
-          <nav aria-label="Ajuda">
-            <h2 className="font-sans text-[0.8125rem] font-semibold uppercase tracking-[0.18em] text-vn-ice/90">
-              Ajuda
-            </h2>
-            <ul className="mt-4 space-y-2.5">
+          <nav aria-label="Ajuda" className="md:col-span-3">
+            <h2 className="eyebrow">Ajuda</h2>
+            <ul className="mt-5 space-y-3">
               {AJUDA.map(l => (
                 <li key={l.href}>
                   <Link
                     href={l.href}
-                    className="font-sans text-[0.95rem] text-vn-ice no-underline transition-opacity hover:opacity-75"
+                    className="font-sans text-[0.95rem] text-vn-ink no-underline transition-colors hover:text-vn-olive-600"
                   >
                     {l.label}
                   </Link>
@@ -64,20 +69,17 @@ export default function Footer() {
             </ul>
           </nav>
 
-          <div>
-            <h2 className="font-sans text-[0.8125rem] font-semibold uppercase tracking-[0.18em] text-vn-ice/90">
-              Fale com a gente
-            </h2>
-            <ul className="mt-4 space-y-3">
+          <div className="md:col-span-3">
+            <h2 className="eyebrow">Fale com a gente</h2>
+            <ul className="mt-5 space-y-3 font-sans text-[0.95rem]">
               <li>
                 <a
                   href={WHATSAPP_URL}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2.5 font-sans text-[0.95rem] text-vn-ice no-underline transition-opacity hover:opacity-75"
+                  className="text-vn-ink no-underline transition-colors hover:text-vn-olive-600"
                 >
-                  <MessageCircle size={17} aria-hidden />
-                  {WHATSAPP_LABEL}
+                  WhatsApp {WHATSAPP_LABEL}
                 </a>
               </li>
               <li>
@@ -85,35 +87,28 @@ export default function Footer() {
                   href={INSTAGRAM_URL}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2.5 font-sans text-[0.95rem] text-vn-ice no-underline transition-opacity hover:opacity-75"
+                  className="text-vn-ink no-underline transition-colors hover:text-vn-olive-600"
                 >
-                  <Instagram size={17} aria-hidden />
-                  {INSTAGRAM_HANDLE}
+                  Instagram {INSTAGRAM_HANDLE}
                 </a>
               </li>
               <li>
                 <a
                   href={`mailto:${EMAIL}`}
-                  className="flex items-center gap-2.5 font-sans text-[0.95rem] text-vn-ice no-underline transition-opacity hover:opacity-75"
+                  className="text-vn-ink no-underline transition-colors hover:text-vn-olive-600"
                 >
-                  <Mail size={17} aria-hidden />
                   {EMAIL}
                 </a>
               </li>
-              <li className="flex items-center gap-2.5 font-sans text-[0.95rem] text-vn-ice/90">
-                <MapPin size={17} aria-hidden />
-                {CIDADE}
-              </li>
+              <li className="text-vn-ink-soft">{CIDADE}</li>
             </ul>
           </div>
         </div>
 
-        <div className="mt-12 flex flex-col gap-3 border-t border-vn-ice/20 pt-7 md:flex-row md:items-center md:justify-between">
-          <p className="font-sans text-sm text-vn-ice/90">
-            © {new Date().getFullYear()} Viviane Nosralla. Todos os direitos reservados.
-          </p>
-          <p className="font-sans text-sm text-vn-ice/90">
-            Enviamos para todo o Brasil · Frete grátis acima de R$ 399
+        <div className="rule mt-14 flex flex-col gap-2 pt-6 font-sans text-sm text-vn-ink-soft md:flex-row md:items-center md:justify-between">
+          <p>© {new Date().getFullYear()} Viviane Nosralla. Todos os direitos reservados.</p>
+          <p>
+            Enviamos para todo o Brasil · Frete grátis acima de {precoBR(FRETE_GRATIS_ACIMA)}
           </p>
         </div>
       </div>

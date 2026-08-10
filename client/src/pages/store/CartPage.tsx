@@ -19,11 +19,11 @@ export default function CartPage() {
         <Navbar />
         <main className="container-vn py-24 text-center">
           <ShoppingBag size={56} className="mx-auto text-vn-olive-300" aria-hidden />
-          <h1 className="mt-6 text-[2rem]">Sua sacola está vazia</h1>
+          <h1 className="display-lg mt-6">Sua sacola está vazia</h1>
           <p className="mt-3 font-sans text-vn-ink-soft">
             Escolha suas peças favoritas e volte aqui para finalizar.
           </p>
-          <Link href="/loja" className="btn-olive mt-8 no-underline">
+          <Link href="/loja" className="btn-ink mt-8 no-underline">
             Ver a coleção
           </Link>
         </main>
@@ -46,7 +46,7 @@ export default function CartPage() {
           Continuar comprando
         </Link>
 
-        <h1 className="mt-4 text-[2.25rem] md:text-[2.75rem]">
+        <h1 className="display-lg mt-4">
           Sua sacola
           <span className="ml-3 font-sans text-lg font-medium text-vn-ink-soft">
             {itemCount} {itemCount === 1 ? "peça" : "peças"}
@@ -56,10 +56,10 @@ export default function CartPage() {
         <div className="mt-10 grid gap-10 lg:grid-cols-[1.6fr_1fr]">
           <ul className="space-y-4">
             {cart.items.map(item => (
-              <li key={item.id} className="flex gap-4 rounded-2xl bg-card p-4 shadow-[0_1px_2px_rgb(52_55_46/0.05)]">
+              <li key={item.id} className="flex gap-4  bg-card p-4 shadow-[0_1px_2px_rgb(52_55_46/0.05)]">
                 <Link
                   href={`/loja/produto/${item.productSlug}`}
-                  className="aspect-fashion w-24 shrink-0 overflow-hidden rounded-xl bg-vn-olive-50"
+                  className="aspect-fashion w-24 shrink-0 overflow-hidden  bg-vn-olive-50"
                 >
                   {item.mainImage && (
                     <img
@@ -88,10 +88,10 @@ export default function CartPage() {
                   </p>
 
                   <div className="mt-auto flex items-center gap-3 pt-3">
-                    <div className="flex items-center rounded-full border border-vn-olive-200">
+                    <div className="flex items-center border border-vn-olive-200">
                       <button
                         onClick={() => updateItem(item.id, item.quantity - 1)}
-                        className="flex h-11 w-11 items-center justify-center rounded-l-full text-vn-ink hover:bg-vn-olive-50"
+                        className="flex h-11 w-11 items-center justify-center  text-vn-ink hover:bg-vn-olive-50"
                         aria-label={`Diminuir quantidade de ${item.productTitle}`}
                       >
                         <Minus size={14} aria-hidden />
@@ -99,7 +99,7 @@ export default function CartPage() {
                       <span className="w-8 text-center font-sans font-medium">{item.quantity}</span>
                       <button
                         onClick={() => updateItem(item.id, item.quantity + 1)}
-                        className="flex h-11 w-11 items-center justify-center rounded-r-full text-vn-ink hover:bg-vn-olive-50"
+                        className="flex h-11 w-11 items-center justify-center  text-vn-ink hover:bg-vn-olive-50"
                         aria-label={`Aumentar quantidade de ${item.productTitle}`}
                       >
                         <Plus size={14} aria-hidden />
@@ -107,7 +107,7 @@ export default function CartPage() {
                     </div>
                     <button
                       onClick={() => updateItem(item.id, 0)}
-                      className="flex h-11 w-11 items-center justify-center rounded-full text-vn-ink-soft hover:bg-vn-olive-50 hover:text-vn-wine"
+                      className="flex h-11 w-11 items-center justify-center text-vn-ink-soft hover:bg-vn-olive-50 hover:text-vn-wine"
                       aria-label={`Remover ${item.productTitle} da sacola`}
                     >
                       <Trash2 size={16} aria-hidden />
@@ -135,8 +135,8 @@ export default function CartPage() {
             </li>
           </ul>
 
-          <aside className="h-fit rounded-2xl bg-alt p-6 lg:sticky lg:top-28">
-            <h2 className="font-sans text-lg font-semibold text-vn-ink">Resumo</h2>
+          <aside className="h-fit  bg-alt p-6 lg:sticky lg:top-[calc(var(--vn-header)+1.5rem)]">
+            <h2 className="eyebrow">Resumo</h2>
 
             <dl className="mt-5 space-y-2.5 font-sans text-[0.95rem]">
               <div className="flex justify-between text-vn-ink-soft">
@@ -152,7 +152,7 @@ export default function CartPage() {
             </dl>
 
             {faltaParaFreteGratis > 0 && (
-              <p className="mt-4 rounded-xl bg-white px-4 py-3 font-sans text-[0.9rem] text-vn-olive-700">
+              <p className="mt-4  bg-white px-4 py-3 font-sans text-[0.9rem] text-vn-olive-700">
                 Faltam <strong>{precoBR(faltaParaFreteGratis)}</strong> para o frete sair de graça.
               </p>
             )}
@@ -162,7 +162,7 @@ export default function CartPage() {
               <span className="font-sans text-2xl font-semibold text-vn-ink">{precoBR(total)}</span>
             </div>
 
-            <Button onClick={() => navigate("/loja/checkout")} className="btn-olive mt-6 h-12 w-full text-base">
+            <Button onClick={() => navigate("/loja/checkout")} className="btn-ink mt-6 h-12 w-full text-base">
               Finalizar compra
             </Button>
 

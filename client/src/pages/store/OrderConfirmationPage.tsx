@@ -72,12 +72,12 @@ export default function OrderConfirmationPage() {
         {/* Header */}
         <div className="text-center mb-8">
           <CheckCircle size={56} className="mx-auto mb-4 text-vn-olive-600" aria-hidden />
-          <h1 className="text-[2.25rem] text-vn-ink md:text-[2.75rem]">Pedido realizado!</h1>
+          <h1 className="display-lg">Pedido realizado!</h1>
           <p className="mt-2 text-vn-ink-soft">Obrigado, {order.customerName.split(" ")[0]}!</p>
-          <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-vn-olive-200 bg-card px-4 py-2 shadow-sm">
+          <div className="mt-4 inline-flex items-center gap-2 border border-vn-olive-200 bg-card px-4 py-2">
             <Package size={16} className="text-vn-olive-600" aria-hidden />
             <span className="font-mono font-semibold text-vn-ink">#{orderNumber}</span>
-            <button onClick={() => copyToClipboard(orderNumber, "Número do pedido")} className="flex h-11 w-11 items-center justify-center rounded-full text-vn-ink-soft hover:bg-vn-olive-50 hover:text-vn-ink" aria-label="Copiar número do pedido">
+            <button onClick={() => copyToClipboard(orderNumber, "Número do pedido")} className="flex h-11 w-11 items-center justify-center text-vn-ink-soft hover:bg-vn-olive-50 hover:text-vn-ink" aria-label="Copiar número do pedido">
               <Copy size={14} aria-hidden />
             </button>
           </div>
@@ -85,7 +85,7 @@ export default function OrderConfirmationPage() {
 
         <div className="space-y-4">
           {/* Status */}
-          <div className="rounded-2xl border border-vn-olive-100 bg-card p-5 shadow-sm">
+          <div className=" border border-vn-olive-100 bg-card p-5 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-vn-ink-soft">Status do pedido</p>
@@ -99,17 +99,17 @@ export default function OrderConfirmationPage() {
 
           {/* PIX */}
           {order.payment?.pixQrCode && (
-            <div className="rounded-2xl bg-alt p-5 text-center">
+            <div className=" bg-alt p-5 text-center">
               <h3 className="mb-1 font-sans font-semibold text-vn-ink">Pague com PIX</h3>
               <p className="mb-3 text-sm text-vn-ink-soft">Escaneie o QR code ou copie o código PIX</p>
               {order.payment.pixQrCodeBase64 && (
                 <img src={`data:image/png;base64,${order.payment.pixQrCodeBase64}`} alt="QR Code PIX"
                   className="mx-auto w-44 h-44 mb-3" />
               )}
-              <div className="mb-3 break-all rounded-lg bg-card p-3 font-mono text-xs text-vn-ink-soft">
+              <div className="mb-3 break-all  bg-card p-3 font-mono text-xs text-vn-ink-soft">
                 {order.payment.pixQrCode}
               </div>
-              <Button variant="outline" onClick={() => copyToClipboard(order.payment.pixQrCode, "Código PIX")} className="btn-outline-olive">
+              <Button variant="outline" onClick={() => copyToClipboard(order.payment.pixQrCode, "Código PIX")} className="btn-line">
                 <Copy size={14} /> Copiar código PIX
               </Button>
               <p className="mt-2 flex items-center justify-center gap-1 text-sm text-vn-wine">
@@ -120,16 +120,16 @@ export default function OrderConfirmationPage() {
 
           {/* Boleto */}
           {order.payment?.boletoUrl && (
-            <div className="rounded-2xl bg-alt p-5 text-center">
+            <div className=" bg-alt p-5 text-center">
               <h3 className="mb-2 font-sans font-semibold text-vn-ink">Boleto Bancário</h3>
               {order.payment.boletoBarcode && (
                 <div className="mb-3 break-all rounded bg-card p-2 font-mono text-xs text-vn-ink-soft">{order.payment.boletoBarcode}</div>
               )}
               <div className="flex gap-2 justify-center">
-                <Button variant="outline" onClick={() => copyToClipboard(order.payment.boletoBarcode, "Código de barras")} className="btn-outline-olive">
+                <Button variant="outline" onClick={() => copyToClipboard(order.payment.boletoBarcode, "Código de barras")} className="btn-line">
                   <Copy size={14} /> Copiar código
                 </Button>
-                <Button asChild className="btn-olive"><a href={order.payment.boletoUrl} target="_blank" rel="noopener" className="flex items-center gap-2">
+                <Button asChild className="btn-ink"><a href={order.payment.boletoUrl} target="_blank" rel="noopener" className="flex items-center gap-2">
                   <ExternalLink size={14} /> Visualizar boleto
                 </a></Button>
               </div>
@@ -138,12 +138,12 @@ export default function OrderConfirmationPage() {
           )}
 
           {/* Items */}
-          <div className="rounded-2xl border border-vn-olive-100 bg-card p-5 shadow-sm">
+          <div className=" border border-vn-olive-100 bg-card p-5 shadow-sm">
             <h3 className="mb-3 font-sans font-semibold text-vn-ink">Itens do pedido</h3>
             <div className="space-y-3">
               {order.items?.map((item: any) => (
                 <div key={item.id} className="flex items-center gap-3">
-                  {item.imageUrl && <img src={item.imageUrl} alt={item.productTitle} className="aspect-fashion w-12 rounded-lg bg-vn-olive-50 object-cover" />}
+                  {item.imageUrl && <img src={item.imageUrl} alt={item.productTitle} className="aspect-fashion w-12  bg-vn-olive-50 object-cover" />}
                   <div className="flex-1">
                     <p className="text-sm font-medium text-vn-ink">{item.productTitle}</p>
                     {item.variantTitle && <p className="text-sm text-vn-ink-soft">{item.variantTitle}</p>}
@@ -164,7 +164,7 @@ export default function OrderConfirmationPage() {
           </div>
 
           {/* Delivery address */}
-          <div className="rounded-2xl border border-vn-olive-100 bg-card p-5 shadow-sm">
+          <div className=" border border-vn-olive-100 bg-card p-5 shadow-sm">
             <h3 className="mb-2 font-sans font-semibold text-vn-ink">Endereço de entrega</h3>
             <p className="text-sm text-vn-ink-soft">
               {order.shippingLogradouro}, {order.shippingNumero}
@@ -176,12 +176,12 @@ export default function OrderConfirmationPage() {
 
           {/* Actions */}
           <div className="flex flex-col gap-3 sm:flex-row">
-            <Link href="/loja" className="btn-olive flex-1 no-underline">Voltar à loja</Link>
+            <Link href="/loja" className="btn-ink flex-1 no-underline">Voltar à loja</Link>
             <a
               href={whatsappCom(`Oi! Gostaria de falar sobre o pedido ${orderNumber}.`)}
               target="_blank"
               rel="noopener noreferrer"
-              className="btn-outline-olive flex-1 no-underline"
+              className="btn-line flex-1 no-underline"
             >
               <MessageCircle size={18} aria-hidden />
               WhatsApp {WHATSAPP_LABEL}

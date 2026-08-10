@@ -35,23 +35,23 @@ export default function ContatoPage() {
     }
   }
 
-  const inputClass = "mt-2 min-h-12 w-full rounded-xl border border-vn-olive-200 bg-white px-4 py-3 text-vn-ink";
+  const inputClass = "mt-2 min-h-12 w-full  border border-vn-olive-200 bg-white px-4 py-3 text-vn-ink";
 
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
       <main>
-        <section className="section-padding">
-          <div className="container-vn">
+        <section className="bleed py-16 md:py-24">
+          <div className="w-full">
             <p className="eyebrow">Fale com a gente</p>
-            <h1 className="mt-4 text-[2.75rem] text-balance md:text-[4rem]">Estamos por perto</h1>
+            <h1 className="display-hero mt-5 max-w-4xl text-balance">Estamos por perto</h1>
             <p className="mt-6 max-w-2xl text-[1.125rem] text-vn-ink-soft">
               Para escolher uma peça, conferir medidas ou acompanhar um pedido, conte com um atendimento próximo e acolhedor.
             </p>
 
             <div className="mt-12 grid gap-12 lg:grid-cols-[0.8fr_1.2fr] lg:gap-20">
               <section aria-labelledby="canais-titulo">
-                <h2 id="canais-titulo" className="text-[2rem]">Nossos canais</h2>
+                <h2 id="canais-titulo" className="display-md">Nossos canais</h2>
                 <ul className="mt-6 space-y-4 text-[1.0625rem] text-vn-ink-soft">
                   <li><strong className="block text-vn-ink">WhatsApp de vendas</strong><a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center text-vn-olive-700 underline">{WHATSAPP_LABEL}</a></li>
                   <li><strong className="block text-vn-ink">Instagram</strong><a href={INSTAGRAM_URL} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center text-vn-olive-700 underline">{INSTAGRAM_HANDLE}</a></li>
@@ -60,14 +60,14 @@ export default function ContatoPage() {
                 </ul>
               </section>
 
-              <section className="rounded-2xl bg-alt p-6 md:p-10" aria-labelledby="mensagem-titulo">
-                <h2 id="mensagem-titulo" className="text-[2rem]">Envie uma mensagem</h2>
+              <section className="bg-alt p-6 md:p-10" aria-labelledby="mensagem-titulo">
+                <h2 id="mensagem-titulo" className="display-md">Envie uma mensagem</h2>
                 <form onSubmit={enviar} className="mt-7 space-y-5">
                   <div><label htmlFor="contact-name" className="font-semibold text-vn-ink">Nome</label><input id="contact-name" name="name" required autoComplete="name" className={inputClass} /></div>
                   <div><label htmlFor="contact-phone" className="font-semibold text-vn-ink">Telefone ou WhatsApp</label><input id="contact-phone" name="phone" required type="tel" autoComplete="tel" className={inputClass} /></div>
                   <div><label htmlFor="contact-email" className="font-semibold text-vn-ink">E-mail</label><input id="contact-email" name="email" required type="email" autoComplete="email" className={inputClass} /></div>
                   <div><label htmlFor="contact-message" className="font-semibold text-vn-ink">Como podemos ajudar?</label><textarea id="contact-message" name="message" required rows={5} className={inputClass} /></div>
-                  <button type="submit" disabled={status === "sending"} className="btn-olive disabled:cursor-not-allowed disabled:opacity-60">
+                  <button type="submit" disabled={status === "sending"} className="btn-ink disabled:cursor-not-allowed disabled:opacity-60">
                     {status === "sending" ? "Enviando…" : "Enviar mensagem"}
                   </button>
                   <p aria-live="polite" className={`min-h-6 text-[1rem] ${status === "error" ? "text-destructive" : "text-vn-olive-700"}`}>
