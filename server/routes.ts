@@ -6,7 +6,7 @@ import path from "path";
 import fs from "fs";
 import { v4 as uuidv4 } from "uuid";
 import * as XLSX from "xlsx";
-import { storage, parseProductSort, EstoqueInsuficienteError } from "./storage";
+import { storage, parseProductSort, EstoqueInsuficienteError, ItemIndisponivelError } from "./storage";
 import { insertContactMessageSchema, checkoutSchema, ANALYTICS_CONFIG_KEYS } from "@shared/schema";
 import { z } from "zod";
 import { fromError } from "zod-validation-error";
@@ -595,6 +595,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     try {
       placed = await storage.placeOrder({ orderNumber, data, cartItems: cart.items, shippingAmount });
     } catch (e: any) {
+      if (e instanceof ItemIndisponivelError) {
+        return res.status(409).json({
+          error: "item_indisponivel",
+          message: `${e.productTitle} não está mais disponível. Remova o item do carrinho para continuar.`,
+        });
+      }
       if (e instanceof EstoqueInsuficienteError) {
         return res.status(409).json({
           error: "estoque_insuficiente",

@@ -533,7 +533,9 @@ export const checkoutSchema = z.object({
   // Envio
   shippingCarrier: z.string().optional(),
   shippingService: z.string().optional(),
-  shippingAmount: z.number().default(0),
+  // Sem o piso em zero, frete negativo vindo do corpo da requisição derruba o
+  // total abaixo do subtotal — e, com valor grande o bastante, para negativo.
+  shippingAmount: z.number().min(0).default(0),
   // Pagamento
   paymentMethod: z.enum(["pix", "boleto", "credit_card", "debit_card"]),
   // Cartão de crédito (opcional)

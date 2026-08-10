@@ -96,6 +96,16 @@ function bySizeOrder(a: string, b: string): number {
   return ia - ib;
 }
 
+/** Item do carrinho que deixou de estar à venda entre o clique e o fechamento. */
+export class ItemIndisponivelError extends Error {
+  readonly productTitle: string;
+  constructor(productTitle: string) {
+    super(`Item indisponível: ${productTitle}`);
+    this.name = "ItemIndisponivelError";
+    this.productTitle = productTitle;
+  }
+}
+
 /** Saldo insuficiente no fechamento do pedido: aborta a transação inteira. */
 export class EstoqueInsuficienteError extends Error {
   readonly productId: number;
@@ -412,10 +422,37 @@ export class DatabaseStorage {
     const ids = [...new Set(cartItems.map((i: any) => i.productId))];
     const flagRows = await db.select({
       id: products.id, title: products.title,
+      status: products.status, published: products.published,
       trackInventory: products.trackInventory,
       continueSellingOutOfStock: products.continueSellingOutOfStock,
     }).from(products).where(inArray(products.id, ids));
     const flagsPorProduto = new Map(flagRows.map((p) => [p.id, p]));
+
+    // Esconder a peça da vitrine não basta: o carrinho guarda productId, que é
+    // serial, e o item continua lá se a peça for despublicada depois de
+    // adicionado. Sem esta checagem dá para fechar pedido de peça em rascunho —
+    // preço não conferido, peça descontinuada, foto provisória.
+    const variantIds = cartItems.map((i: any) => i.variantId).filter((v: any): v is number => v != null);
+    const variantRows = variantIds.length
+      ? await db.select({ id: variants.id, productId: variants.productId, active: variants.active })
+          .from(variants).where(inArray(variants.id, variantIds))
+      : [];
+    const variantePorId = new Map(variantRows.map((v) => [v.id, v]));
+
+    for (const item of cartItems) {
+      const p = flagsPorProduto.get(item.productId);
+      if (!p || p.status !== "active" || !p.published) {
+        throw new ItemIndisponivelError(item.productTitle ?? `produto ${item.productId}`);
+      }
+      if (item.variantId != null) {
+        const v = variantePorId.get(item.variantId);
+        // Variante validada contra o produto (INV-C): variantId de outra peça
+        // não pode entrar no pedido.
+        if (!v || !v.active || v.productId !== item.productId) {
+          throw new ItemIndisponivelError(item.productTitle ?? `produto ${item.productId}`);
+        }
+      }
+    }
 
     return db.transaction(async (trx) => {
       const subtotal = cartItems.reduce((sum: number, i: any) => sum + Number(i.unitPrice) * i.quantity, 0);
@@ -438,7 +475,8 @@ export class DatabaseStorage {
         discountAmount += descontoPix(subtotal, discountAmount);
         discountAmount = Math.min(discountAmount, subtotal);
       }
-      const total = subtotal - discountAmount + shippingAmount;
+      // INV-C: total nunca negativo, mesmo se desconto e frete conspirarem.
+      const total = Math.max(0, subtotal - discountAmount + shippingAmount);
 
       // Fail-fast: baixa antes dos inserts, para não gravar pedido que vai morrer.
       for (const item of cartItems) {
