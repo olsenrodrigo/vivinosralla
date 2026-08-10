@@ -1,7 +1,13 @@
 node_modules/
 dist/
 .env
-uploads/
 *.log
 .DS_Store
 .vite/
+
+# Uploads: só o catálogo-semente entra no repo — são fotos do acervo que o
+# site referencia direto no código (hero, manifesto, mural do Instagram) e
+# no seed do banco, então precisam existir em qualquer clone/deploy.
+# O que o backoffice grava em runtime (products/, imports/) fica de fora.
+uploads/*
+!uploads/produtos/
