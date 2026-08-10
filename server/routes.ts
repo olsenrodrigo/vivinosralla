@@ -6,9 +6,8 @@ import path from "path";
 import fs from "fs";
 import { v4 as uuidv4 } from "uuid";
 import * as XLSX from "xlsx";
-import { storage, parseProductSort } from "./storage";
+import { storage, parseProductSort, EstoqueInsuficienteError } from "./storage";
 import { insertContactMessageSchema, checkoutSchema, ANALYTICS_CONFIG_KEYS } from "@shared/schema";
-import { descontoPix } from "@shared/pagamento";
 import { z } from "zod";
 import { fromError } from "zod-validation-error";
 import { sendContactEmail } from "./email";
@@ -576,33 +575,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       return res.status(400).json({ message: "Carrinho vazio" });
     }
 
-    // Calculate totals
-    let subtotal = cart.items.reduce((sum: number, i: any) =>
-      sum + Number(i.unitPrice) * i.quantity, 0);
-    let discountAmount = 0;
-
-    let appliedCouponCode: string | null = null;
-    if (data.couponCode) {
-      // Claim ATÔMICO: revalida (ativo/datas/limite/mínimo) E conta o uso numa
-      // única instrução SQL — sem estourar o limite em corrida e sem contar cupom
-      // expirado/esgotado. Se inválido no momento do fechamento, ignora o cupom.
-      const claimed = await storage.claimCouponUsage(data.couponCode, subtotal);
-      if (claimed) {
-        appliedCouponCode = claimed.code;
-        if (claimed.type === "percentage") discountAmount = (subtotal * Number(claimed.value)) / 100;
-        else if (claimed.type === "fixed") discountAmount = Number(claimed.value);
-        discountAmount = Math.min(discountAmount, subtotal); // clamp: nunca > subtotal
-      }
-    }
-
     const shippingAmount = data.shippingAmount || 0;
-    // O site anuncia 5% de desconto no PIX na página do produto e no checkout.
-    // Aplicar aqui é o que garante que a cobrança bata com o valor exibido.
-    if (data.paymentMethod === "pix") {
-      discountAmount += descontoPix(subtotal, discountAmount);
-      discountAmount = Math.min(discountAmount, subtotal);
-    }
-    const total = subtotal - discountAmount + shippingAmount;
 
     // Canal WhatsApp: cria o pedido sem cobrança online (pagamento negociado no chat).
     const viaWhatsapp = data.channel === "whatsapp";
@@ -615,55 +588,27 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       return res.status(400).json({ message: `Forma de pagamento indisponível: ${data.paymentMethod}` });
     }
 
-    // Create order
+    // Pedido, itens, cupom e baixa de estoque numa transação só: saldo
+    // insuficiente derruba tudo junto, inclusive o uso do cupom.
     const orderNumber = generateOrderNumber();
-    const order = await storage.createOrder({
-      orderNumber,
-      customerName: data.customerName,
-      customerEmail: data.customerEmail,
-      customerPhone: data.customerPhone,
-      customerCpf: data.customerCpf,
-      shippingRecipient: data.shippingRecipient,
-      shippingCep: data.shippingCep,
-      shippingLogradouro: data.shippingLogradouro,
-      shippingNumero: data.shippingNumero,
-      shippingComplemento: data.shippingComplemento,
-      shippingBairro: data.shippingBairro,
-      shippingCidade: data.shippingCidade,
-      shippingEstado: data.shippingEstado,
-      subtotal: String(subtotal),
-      discountAmount: String(discountAmount),
-      shippingAmount: String(shippingAmount),
-      total: String(total),
-      paymentMethod: data.paymentMethod,
-      couponCode: appliedCouponCode,
-      shippingCarrier: data.shippingCarrier,
-      shippingService: data.shippingService,
-      status: "pending_payment",
-      paymentStatus: "pending",
-    });
-
-    // Create order items + decrement stock
-    const orderItemsData = cart.items.map((i: any) => ({
-      orderId: order.id,
-      productId: i.productId,
-      variantId: i.variantId,
-      productTitle: i.productTitle,
-      // Loja de roupa: sem o rótulo da grade a lojista recebe o pedido sem saber
-      // tamanho e cor (só o variantId numérico ficaria gravado).
-      variantTitle: i.variantTitle ?? null,
-      quantity: i.quantity,
-      unitPrice: String(i.unitPrice),
-      totalPrice: String(Number(i.unitPrice) * i.quantity),
-      imageUrl: i.mainImage,
-      bundleLabel: i.bundleLabel ?? null,
-    }));
-    await storage.createOrderItems(orderItemsData);
-
-    // Decrement stock (produto + grade vendida)
-    for (const item of cart.items) {
-      await storage.decrementStock(item.productId, item.quantity, item.variantId);
+    let placed;
+    try {
+      placed = await storage.placeOrder({ orderNumber, data, cartItems: cart.items, shippingAmount });
+    } catch (e: any) {
+      if (e instanceof EstoqueInsuficienteError) {
+        return res.status(409).json({
+          error: "estoque_insuficiente",
+          message: `Estoque insuficiente para ${e.productTitle}${e.variantTitle ? ` (${e.variantTitle})` : ""}`,
+          items: [{
+            productId: e.productId, variantId: e.variantId,
+            productTitle: e.productTitle, variantTitle: e.variantTitle,
+            requested: e.requested, available: e.available,
+          }],
+        });
+      }
+      throw e;
     }
+    const { order, subtotal, discountAmount, total } = placed;
 
     // Process payment (só no canal online) — roteia pelo gateway configurado.
     let paymentResult: any = { success: true };
@@ -704,6 +649,13 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
     if (!paymentResult.success) {
       console.error(`[checkout] falha no pagamento (${gatewayId}):`, paymentResult.error);
+      // Cobrança falhou: desfaz o pedido e devolve estoque e cupom, em vez de
+      // deixar pedido pending_payment eterno segurando saldo.
+      await storage.cancelOrderRestock(order.id, `Cobrança falhou: ${paymentResult.error ?? "erro desconhecido"}`);
+      return res.status(402).json({
+        error: "pagamento_falhou",
+        message: "Não foi possível processar o pagamento. Nenhum valor foi cobrado — revise os dados e tente novamente.",
+      });
     }
 
     if (paymentResult.success && paymentResult.transactionId) {
@@ -743,7 +695,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         orderNumber,
         customerName: data.customerName,
         customerEmail: data.customerEmail,
-        items: orderItemsData.map((i: any) => ({
+        items: cart.items.map((i: any) => ({
           title: i.productTitle, quantity: i.quantity, unitPrice: Number(i.unitPrice)
         })),
         subtotal, discountAmount, shippingAmount, total,

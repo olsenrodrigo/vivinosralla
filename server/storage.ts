@@ -22,6 +22,7 @@ import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import { eq, desc, asc, like, and, or, sql, isNull, inArray } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { priceBundle, type BundleDiscountType } from "@shared/bundle-pricing";
+import { descontoPix } from "@shared/pagamento";
 import pg from "pg";
 
 // Lazy initialization so DATABASE_URL can be loaded from .env before connection
@@ -93,6 +94,30 @@ function bySizeOrder(a: string, b: string): number {
   if (ia === -1) return 1;
   if (ib === -1) return -1;
   return ia - ib;
+}
+
+/** Saldo insuficiente no fechamento do pedido: aborta a transação inteira. */
+export class EstoqueInsuficienteError extends Error {
+  readonly productId: number;
+  readonly variantId: number | null;
+  readonly productTitle: string;
+  readonly variantTitle: string | null;
+  readonly requested: number;
+  readonly available: number;
+  constructor(d: {
+    productId: number; variantId: number | null;
+    productTitle: string; variantTitle: string | null;
+    requested: number; available: number;
+  }) {
+    super(`Estoque insuficiente para ${d.productTitle}`);
+    this.name = "EstoqueInsuficienteError";
+    this.productId = d.productId;
+    this.variantId = d.variantId;
+    this.productTitle = d.productTitle;
+    this.variantTitle = d.variantTitle;
+    this.requested = d.requested;
+    this.available = d.available;
+  }
 }
 
 export class DatabaseStorage {
@@ -307,15 +332,215 @@ export class DatabaseStorage {
    * mas o tamanho vendido continua disponível na vitrine e a loja revende peça
    * que já saiu.
    */
-  async decrementStock(productId: number, qty: number, variantId?: number | null): Promise<void> {
-    await db.update(products)
+  /**
+   * Baixa de estoque com guarda de saldo, dentro de uma transação.
+   *
+   * A condição `stock_quantity >= qty` mora no próprio UPDATE: o row-lock do
+   * Postgres serializa dois checkouts do último item, e o segundo afeta zero
+   * linhas em vez de deixar o saldo negativo. Conferir o saldo antes com um
+   * SELECT não resolveria — entre o SELECT e o UPDATE cabe a outra venda.
+   *
+   * Baixa por variante (convenção 3 do CLAUDE.md): sem isso, tamanho esgotado
+   * continua à venda porque só o total do produto foi debitado.
+   */
+  private async decrementStockTx(
+    trx: any,
+    item: { productId: number; quantity: number; variantId?: number | null },
+    flags: { trackInventory: boolean; continueSellingOutOfStock: boolean; title: string },
+  ): Promise<void> {
+    if (!flags.trackInventory) return;
+    const qty = item.quantity;
+    const semGuarda = flags.continueSellingOutOfStock;
+
+    const linhasProduto = await trx.update(products)
       .set({ stockQuantity: sql`${products.stockQuantity} - ${qty}` })
-      .where(eq(products.id, productId));
-    if (variantId) {
-      await db.update(variants)
-        .set({ stockQuantity: sql`${variants.stockQuantity} - ${qty}` })
-        .where(eq(variants.id, variantId));
+      .where(semGuarda
+        ? eq(products.id, item.productId)
+        : and(eq(products.id, item.productId), sql`${products.stockQuantity} >= ${qty}`))
+      .returning({ id: products.id });
+
+    if (!semGuarda && linhasProduto.length === 0) {
+      const [atual] = await trx.select({ saldo: products.stockQuantity, titulo: products.title })
+        .from(products).where(eq(products.id, item.productId));
+      throw new EstoqueInsuficienteError({
+        productId: item.productId, variantId: item.variantId ?? null,
+        productTitle: atual?.titulo ?? flags.title, variantTitle: null,
+        requested: qty, available: atual?.saldo ?? 0,
+      });
     }
+
+    if (item.variantId) {
+      const linhasVariante = await trx.update(variants)
+        .set({ stockQuantity: sql`${variants.stockQuantity} - ${qty}` })
+        .where(semGuarda
+          ? eq(variants.id, item.variantId)
+          : and(eq(variants.id, item.variantId), sql`${variants.stockQuantity} >= ${qty}`))
+        .returning({ id: variants.id });
+
+      if (!semGuarda && linhasVariante.length === 0) {
+        // option1 = Tamanho, option2 = Cor (convenção 1 do CLAUDE.md).
+        const [v] = await trx.select({
+          saldo: variants.stockQuantity, tamanho: variants.option1, cor: variants.option2,
+        }).from(variants).where(eq(variants.id, item.variantId));
+        throw new EstoqueInsuficienteError({
+          productId: item.productId, variantId: item.variantId,
+          productTitle: flags.title,
+          variantTitle: [v?.tamanho, v?.cor].filter(Boolean).join(" · ") || null,
+          requested: qty, available: v?.saldo ?? 0,
+        });
+      }
+    }
+  }
+
+  /**
+   * Fecha o pedido inteiro numa transação: claim do cupom, totais, baixa de
+   * estoque, pedido e itens. Se qualquer passo falhar, nada acontece — inclusive
+   * o uso do cupom volta atrás sozinho, sem compensação manual.
+   *
+   * A cobrança NÃO entra aqui: é I/O externo e seguraria os locks de estoque e
+   * cupom pelo tempo de resposta do gateway.
+   */
+  async placeOrder(input: {
+    orderNumber: string;
+    data: any;
+    cartItems: any[];
+    shippingAmount: number;
+  }): Promise<{ order: Order; subtotal: number; discountAmount: number; total: number; appliedCouponCode: string | null }> {
+    const { orderNumber, data, cartItems, shippingAmount } = input;
+
+    // Uma consulta para todas as flags do carrinho — sem N+1.
+    const ids = [...new Set(cartItems.map((i: any) => i.productId))];
+    const flagRows = await db.select({
+      id: products.id, title: products.title,
+      trackInventory: products.trackInventory,
+      continueSellingOutOfStock: products.continueSellingOutOfStock,
+    }).from(products).where(inArray(products.id, ids));
+    const flagsPorProduto = new Map(flagRows.map((p) => [p.id, p]));
+
+    return db.transaction(async (trx) => {
+      const subtotal = cartItems.reduce((sum: number, i: any) => sum + Number(i.unitPrice) * i.quantity, 0);
+      let discountAmount = 0;
+      let appliedCouponCode: string | null = null;
+
+      if (data.couponCode) {
+        const claimed = await this.claimCouponUsage(data.couponCode, subtotal, trx);
+        if (claimed) {
+          appliedCouponCode = claimed.code;
+          if (claimed.type === "percentage") discountAmount = (subtotal * Number(claimed.value)) / 100;
+          else if (claimed.type === "fixed") discountAmount = Number(claimed.value);
+          discountAmount = Math.min(discountAmount, subtotal);
+        }
+      }
+
+      // O site anuncia o desconto do PIX na PDP e no checkout; aplicar aqui é o
+      // que garante que a cobrança bata com o valor exibido.
+      if (data.paymentMethod === "pix") {
+        discountAmount += descontoPix(subtotal, discountAmount);
+        discountAmount = Math.min(discountAmount, subtotal);
+      }
+      const total = subtotal - discountAmount + shippingAmount;
+
+      // Fail-fast: baixa antes dos inserts, para não gravar pedido que vai morrer.
+      for (const item of cartItems) {
+        const f = flagsPorProduto.get(item.productId);
+        await this.decrementStockTx(trx, item, {
+          trackInventory: f?.trackInventory ?? true,
+          continueSellingOutOfStock: f?.continueSellingOutOfStock ?? false,
+          title: f?.title ?? item.productTitle,
+        });
+      }
+
+      const [order] = await trx.insert(orders).values({
+        orderNumber,
+        customerName: data.customerName,
+        customerEmail: data.customerEmail,
+        customerPhone: data.customerPhone,
+        customerCpf: data.customerCpf,
+        shippingRecipient: data.shippingRecipient,
+        shippingCep: data.shippingCep,
+        shippingLogradouro: data.shippingLogradouro,
+        shippingNumero: data.shippingNumero,
+        shippingComplemento: data.shippingComplemento,
+        shippingBairro: data.shippingBairro,
+        shippingCidade: data.shippingCidade,
+        shippingEstado: data.shippingEstado,
+        subtotal: String(subtotal),
+        discountAmount: String(discountAmount),
+        shippingAmount: String(shippingAmount),
+        total: String(total),
+        paymentMethod: data.paymentMethod,
+        couponCode: appliedCouponCode,
+        shippingCarrier: data.shippingCarrier,
+        shippingService: data.shippingService,
+        status: "pending_payment",
+        paymentStatus: "pending",
+      } as InsertOrder).returning();
+
+      await trx.insert(orderItems).values(cartItems.map((i: any) => ({
+        orderId: order.id,
+        productId: i.productId,
+        variantId: i.variantId,
+        productTitle: i.productTitle,
+        // Sem o rótulo da grade a lojista recebe o pedido sem saber tamanho e cor.
+        variantTitle: i.variantTitle ?? null,
+        quantity: i.quantity,
+        unitPrice: String(i.unitPrice),
+        totalPrice: String(Number(i.unitPrice) * i.quantity),
+        imageUrl: i.mainImage,
+        bundleLabel: i.bundleLabel ?? null,
+      })));
+
+      return { order, subtotal, discountAmount, total, appliedCouponCode };
+    });
+  }
+
+  /**
+   * Desfaz um pedido cuja cobrança falhou: devolve estoque e uso de cupom.
+   *
+   * A guarda `status = 'pending_payment'` é a idempotência: se um webhook já
+   * mexeu no pedido, nada é desfeito e o estoque não é devolvido duas vezes.
+   */
+  async cancelOrderRestock(orderId: number, motivo: string): Promise<boolean> {
+    return db.transaction(async (trx) => {
+      const cancelado = await trx.update(orders)
+        .set({ status: "cancelled", paymentStatus: "rejected", updatedAt: new Date() })
+        .where(and(eq(orders.id, orderId), eq(orders.status, "pending_payment")))
+        .returning({ id: orders.id, couponCode: orders.couponCode });
+      if (cancelado.length === 0) return false;
+
+      const itens = await trx.select().from(orderItems).where(eq(orderItems.orderId, orderId));
+      const ids = [...new Set(itens.map((i) => i.productId).filter((x): x is number => x != null))];
+      const flagRows = ids.length
+        ? await trx.select({ id: products.id, trackInventory: products.trackInventory })
+            .from(products).where(inArray(products.id, ids))
+        : [];
+      const rastreia = new Map(flagRows.map((p) => [p.id, p.trackInventory]));
+
+      for (const item of itens) {
+        if (item.productId == null || rastreia.get(item.productId) === false) continue;
+        await trx.update(products)
+          .set({ stockQuantity: sql`${products.stockQuantity} + ${item.quantity}` })
+          .where(eq(products.id, item.productId));
+        if (item.variantId) {
+          await trx.update(variants)
+            .set({ stockQuantity: sql`${variants.stockQuantity} + ${item.quantity}` })
+            .where(eq(variants.id, item.variantId));
+        }
+      }
+
+      const cupom = cancelado[0].couponCode;
+      if (cupom) {
+        await trx.update(coupons)
+          .set({ usedCount: sql`GREATEST(${coupons.usedCount} - 1, 0)` })
+          .where(eq(coupons.code, cupom));
+      }
+
+      await trx.insert(orderStatusHistory).values({
+        orderId, fromStatus: "pending_payment", toStatus: "cancelled",
+        note: motivo, createdBy: "system",
+      });
+      return true;
+    });
   }
 
   // ─── Product Images ───────────────────────────────────────────────────────
@@ -611,8 +836,8 @@ export class DatabaseStorage {
    * WHERE é reavaliado após o lock (READ COMMITTED) — na corrida do último uso,
    * só 1 vence. Retorna a linha atualizada, ou null se qualquer condição falhou.
    */
-  async claimCouponUsage(code: string, subtotal: number): Promise<Coupon | null> {
-    const rows = await db
+  async claimCouponUsage(code: string, subtotal: number, ex: any = db): Promise<Coupon | null> {
+    const rows = await ex
       .update(coupons)
       .set({ usedCount: sql`${coupons.usedCount} + 1` })
       .where(
@@ -920,11 +1145,20 @@ export class DatabaseStorage {
           imageUrl: it.imageUrl ?? null,
         })));
         // Baixa de estoque na MESMA transação (paridade com o checkout avulso).
+        // Sem guarda de saldo, ao contrário do checkout: o ciclo da assinatura
+        // chega já pago, e recusar por estoque deixaria pedido pago sem
+        // materializar. Saldo negativo aqui é sinal honesto de reposição devida.
         for (const it of items) {
           if (it.productId) {
             await trx.update(products)
               .set({ stockQuantity: sql`${products.stockQuantity} - ${it.quantity}` })
               .where(eq(products.id, it.productId));
+          }
+          // Convenção 3: baixar só o produto deixa o tamanho esgotado à venda.
+          if (it.variantId) {
+            await trx.update(variants)
+              .set({ stockQuantity: sql`${variants.stockQuantity} - ${it.quantity}` })
+              .where(eq(variants.id, it.variantId));
           }
         }
       }
