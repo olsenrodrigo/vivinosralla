@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { trackBeginCheckout, useAnalyticsReady } from "@/lib/analytics";
 import { precoBR } from "@/lib/marca";
-import { descontoPix } from "@shared/pagamento";
+import { descontoPix, PIX_DESCONTO } from "@shared/pagamento";
 
 type Step = 1 | 2 | 3 | 4;
 
@@ -468,7 +468,7 @@ export default function CheckoutPage() {
                   <h2 className="mb-5 text-2xl text-vn-ink">Forma de pagamento</h2>
                   <div className="space-y-3 mb-4">
                     {[
-                      { method: "pix" as const, icon: <Smartphone size={18} />, label: "PIX", desc: `${precoBR(pixTotal)} — 5% de desconto`, badge: "Aprovação instantânea" },
+                      { method: "pix" as const, icon: <Smartphone size={18} />, label: "PIX", desc: `${precoBR(pixTotal)} — ${Math.round(PIX_DESCONTO * 100)}% de desconto`, badge: "Aprovação instantânea" },
                       { method: "boleto" as const, icon: <FileText size={18} />, label: "Boleto Bancário", desc: `${precoBR(orderTotal)} — vence em 3 dias`, badge: null },
                       { method: "credit_card" as const, icon: <CreditCard size={18} />, label: "Cartão de Crédito", desc: `Até 12x`, badge: null },
                     ].filter(opt => !payConfig || payConfig[opt.method]?.enabled).map(opt => (
@@ -549,7 +549,7 @@ export default function CheckoutPage() {
                 <div className="flex justify-between text-vn-ink-soft"><span>Subtotal</span><span>{precoBR(total)}</span></div>
                 {couponDiscount > 0 && <div className="flex justify-between text-vn-olive-700"><span>Desconto</span><span>- {precoBR(couponDiscount)}</span></div>}
                 <div className="flex justify-between text-vn-ink-soft"><span>Frete</span><span>{shipping.amount > 0 ? precoBR(shipping.amount) : "-"}</span></div>
-                {paymentMethod === "pix" && <div className="flex justify-between text-xs text-vn-olive-700"><span>Desconto PIX (5%)</span><span>- {precoBR(pixDesconto)}</span></div>}
+                {paymentMethod === "pix" && <div className="flex justify-between text-xs text-vn-olive-700"><span>Desconto PIX ({Math.round(PIX_DESCONTO * 100)}%)</span><span>- {precoBR(pixDesconto)}</span></div>}
               </div>
               <div className="flex justify-between border-t border-vn-olive-200 pt-2 text-base font-bold text-vn-ink">
                 <span>Total</span>

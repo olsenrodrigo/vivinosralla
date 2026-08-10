@@ -1,4 +1,5 @@
 import { FRETE_GRATIS_ACIMA, precoBR } from "@/lib/marca";
+import { PIX_DESCONTO } from "@shared/pagamento";
 
 /**
  * Faixa de recados logo abaixo da abertura.
@@ -11,7 +12,7 @@ const RECADOS = [
   "Enviamos para todo o Brasil",
   `Frete grátis acima de ${precoBR(FRETE_GRATIS_ACIMA)}`,
   "30 dias para trocar o tamanho",
-  "5% de desconto no PIX",
+  `${Math.round(PIX_DESCONTO * 100)}% de desconto no PIX`,
   "Dúvida de caimento? Chame no WhatsApp",
   "Loja física em Monte Alto · SP",
 ];

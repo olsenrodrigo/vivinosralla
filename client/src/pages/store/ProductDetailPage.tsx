@@ -11,6 +11,7 @@ import { trackViewItem, trackAddToCart, useAnalyticsReady } from "@/lib/analytic
 import ReviewsSection from "@/components/store/ReviewsSection";
 import BundleOffer, { type ApiBundle } from "@/components/store/BundleOffer";
 import { corHex, precoBR, whatsappCom, FRETE_GRATIS_ACIMA } from "@/lib/marca";
+import { descontoPix, PIX_DESCONTO } from "@shared/pagamento";
 
 interface ProductImage { id: number; url: string; altText?: string; isMain: boolean; position: number; }
 interface Variant {
@@ -256,7 +257,7 @@ export default function ProductDetailPage() {
                 em até 3x de {precoBR(valorParcela)} sem juros · ou {parcelas}x com juros
               </p>
               <p className="mt-1 font-sans text-[0.95rem] font-semibold text-vn-olive-700">
-                {precoBR(Number(preco) * 0.95)} no PIX (5% de desconto)
+                {precoBR(Number(preco) - descontoPix(Number(preco)))} no PIX ({Math.round(PIX_DESCONTO * 100)}% de desconto)
               </p>
             </div>
 
