@@ -1,26 +1,47 @@
 // Adaptador Higgsfield — fetch direto, sem SDK (decisão do dono do repo).
 //
-// Contrato levantado contra a API real em 2026-08-10, não contra a documentação:
+// Contrato levantado contra a API real em 2026-08-10 e CORRIGIDO em 2026-08-11,
+// não contra a documentação:
 //   - autenticação por DOIS headers, hf-api-key e hf-secret. Sem nenhum: 401.
 //     Com chave válida e secret errado: 401. Com chave válida e SEM o header de
 //     secret: 500 (bug deles). Os dois corretos: passa.
-//   - POST /v1/text2image/soul devolve 422 com o campo faltando quando o corpo
-//     está incompleto, e 403 {"detail":"Not enough credits"} sem saldo de API.
-//   - width_and_height é enumerado; 1536x2048 é o 3:4 da vitrine.
+//   - `/v1/text2image/<modelo>` — o ENDPOINT é o modelo. Mandar
+//     `params.model` não troca nada: o campo nem existe no schema.
+//   - `soul` tem UM slot de referência (`image_reference`), e ignorou em
+//     silêncio o `input_images` que este adaptador enviava. Sem referência, o
+//     modelo gerava pessoa e roupa do zero — o provador devolvia um
+//     desconhecido vestindo outra peça. É o bug que esta versão corrige.
+//   - `seedream` exige `params.input_images` e preserva as DUAS referências
+//     (pessoa + peça). É o único modelo multi-referência desta API.
+//   - referência vai por URL que o provedor alcança; data URL base64 não é
+//     aceita. Como uploads/provador/ não pode ser público (REQ-6.12), cada
+//     referência sobe antes por /files/generate-upload-url.
 //
-// A spec do provador previa "Authorization: key_id:key_secret" — divergência
-// registrada e resolvida pela realidade da API.
+// CAMPO DESCONHECIDO É DESCARTADO EM SILÊNCIO por esta API — foi assim que o
+// bug passou despercebido. Ao mexer aqui, confira o eco de `input_params` na
+// resposta da submissão: o que não aparece lá não chegou ao modelo.
 
 import { readFile } from "fs/promises";
 import type { EstudioConfig } from "./config";
 import { ProvedorIndisponivelError, type ImageProvider, type PedidoGeracao, type StatusJob } from "./types";
 
-/** Proporção → resolução aceita pela API (lista devolvida pelo próprio 422). */
-const RESOLUCAO: Record<NonNullable<PedidoGeracao["proporcao"]>, string> = {
-  "3:4": "1536x2048",
-  "1:1": "1536x1536",
-  "9:16": "1152x2048",
+interface RespostaUpload {
+  public_url: string;
+  upload_url: string;
+  upload_headers?: Record<string, string>;
+}
+
+const MIME: Record<string, string> = {
+  png: "image/png",
+  webp: "image/webp",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
 };
+
+function mimeDe(caminho: string): string {
+  const ext = caminho.toLowerCase().split(".").pop() ?? "";
+  return MIME[ext] ?? "image/jpeg";
+}
 
 interface RespostaSubmissao {
   id?: string;
@@ -92,39 +113,61 @@ export function criarHiggsfieldProvider(cfg: EstudioConfig): ImageProvider {
     return corpo as T;
   }
 
+  /**
+   * Sobe uma referência local e devolve a URL que o provedor alcança. O arquivo
+   * vive em uploads/provador/, que é fechado ao público de propósito
+   * (REQ-6.12), então não dá para só apontar uma URL nossa. O provedor marca o
+   * objeto como `retention=temporary` no próprio header de upload.
+   */
+  async function subirReferencia(caminho: string): Promise<string> {
+    const contentType = mimeDe(caminho);
+    const destino = await chamar<RespostaUpload>("/files/generate-upload-url", {
+      method: "POST",
+      body: JSON.stringify({ content_type: contentType }),
+    });
+
+    const bytes = await readFile(caminho);
+    let resposta: Response;
+    try {
+      resposta = await fetch(destino.upload_url, {
+        method: "PUT",
+        headers: destino.upload_headers ?? { "Content-Type": contentType },
+        body: new Uint8Array(bytes),
+        signal: AbortSignal.timeout(cfg.timeoutSeconds * 1000),
+      });
+    } catch {
+      throw new ProvedorIndisponivelError("falha_no_upload_da_referencia", 502);
+    }
+    if (!resposta.ok) {
+      throw new ProvedorIndisponivelError(`upload_recusado_${resposta.status}`, 502);
+    }
+    return destino.public_url;
+  }
+
   return {
     id: "higgsfield",
 
     async submeter(pedido: PedidoGeracao): Promise<{ jobId: string }> {
-      // As referências vão como data URL: os arquivos vivem no volume local e o
-      // provedor não alcança uploads/ deste servidor.
-      const referencias = await Promise.all(
-        pedido.referencias.map(async (r) => {
-          const bytes = await readFile(r.caminho);
-          const ext = r.caminho.toLowerCase().endsWith(".png") ? "png"
-            : r.caminho.toLowerCase().endsWith(".webp") ? "webp" : "jpeg";
-          return { type: "image_url", image_url: `data:image/${ext};base64,${bytes.toString("base64")}` };
-        }),
-      );
+      const modelo = pedido.modelo || cfg.modelo;
+      const urls = await Promise.all(pedido.referencias.map((r) => subirReferencia(r.caminho)));
 
       const params: Record<string, unknown> = {
-        model: pedido.modelo || cfg.modelo,
         prompt: pedido.prompt,
-        width_and_height: RESOLUCAO[pedido.proporcao ?? "3:4"],
+        input_images: urls.map((u) => ({ type: "image_url", image_url: u })),
+        aspect_ratio: pedido.proporcao ?? "3:4",
+        quality: "high",
         batch_size: Math.min(Math.max(pedido.n ?? 1, 1), 4),
-        enhance_prompt: false,
       };
-      if (referencias.length) params.input_images = referencias;
 
-      const corpo: Record<string, unknown> = { params };
-      // Webhook só quando há URL pública: em dev o worker faz polling.
-      if (pedido.webhook?.url) {
-        corpo.webhook = { url: pedido.webhook.url, secret: pedido.webhook.secret };
-      }
+      // O webhook é query param (`hf_webhook`), não campo do corpo. A doc do
+      // provedor não descreve assinatura nem segredo no callback, e a nossa
+      // rota exige um: enquanto isso não se resolver, o worker conclui por
+      // polling e o webhook não é registrado.
+      const caminho = `/v1/text2image/${encodeURIComponent(modelo)}`;
 
-      const r = await chamar<RespostaSubmissao>("/v1/text2image/soul", {
+      const r = await chamar<RespostaSubmissao>(caminho, {
         method: "POST",
-        body: JSON.stringify(corpo),
+        body: JSON.stringify({ params }),
       });
       const jobId = r.id ?? r.job_id ?? r.jobs?.[0]?.id;
       if (!jobId) throw new ProvedorIndisponivelError("resposta_sem_job_id", 502);

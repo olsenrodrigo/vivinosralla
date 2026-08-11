@@ -36,7 +36,7 @@ export function loadEstudioConfig(env: NodeJS.ProcessEnv): EstudioConfig {
     mock: env.HIGGSFIELD_MOCK === "1" || !apiKey || !apiSecret,
     mockScenario: cenario,
     baseUrl: (env.HIGGSFIELD_BASE_URL || BASE_URL).replace(/\/$/, ""),
-    modelo: (env.HIGGSFIELD_MODEL || "nano_banana_pro").trim(),
+    modelo: (env.HIGGSFIELD_MODEL || "seedream").trim(),
     timeoutSeconds: Number(env.HIGGSFIELD_TIMEOUT_SECONDS ?? 120) || 120,
     publicUrl: (env.PUBLIC_URL || "").replace(/\/$/, ""),
     webhookSecret: (env.HIGGSFIELD_WEBHOOK_SECRET || "").trim(),

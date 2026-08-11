@@ -3,8 +3,13 @@
 // para a cliente). O contrato interno do sistema é esta interface — trocar de
 // provedor não deve tocar em fila, aprovação nem galeria.
 
-/** Modelos liberados. O provador exige >= 2 referências (pessoa + peça). */
-export const MODELOS_MULTI_REFERENCIA = ["nano_banana_pro", "gpt_image_2"] as const;
+// Modelos liberados. O provador exige >= 2 referências (pessoa + peça), e na
+// API REST do Higgsfield o ENDPOINT é o modelo: `/v1/text2image/<modelo>`.
+// Levantado contra a API real em 2026-08-11: `soul` responde 422 e todo o
+// resto responde `model_not_found`, exceto `seedream` — que exige
+// `params.input_images` e preserva as duas referências. `nano_banana_pro` e
+// `gpt_image_2` existem no app do provedor, mas não nesta API.
+export const MODELOS_MULTI_REFERENCIA = ["seedream"] as const;
 
 export interface PedidoGeracao {
   /** ID do modelo no provedor. */

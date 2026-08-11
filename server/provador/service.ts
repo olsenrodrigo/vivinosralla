@@ -8,9 +8,12 @@ import sharp from "sharp";
 import { storage } from "../storage";
 import { resultadoDir } from "./paths";
 
-/** Modelos que aceitam 2+ referências. soul_2 aceita 1: fica fora do provador. */
-export const MODELOS_PERMITIDOS = ["nano_banana_pro", "gpt_image_2"] as const;
-export const MODELO_PADRAO = "nano_banana_pro";
+// Modelos que aceitam 2+ referências (pessoa + peça). Na API REST do provedor
+// o endpoint é o modelo, e só `seedream` preserva as duas referências: `soul`
+// tem um slot único e descarta o resto em silêncio. Verificado contra a API
+// real em 2026-08-11 — ver o cabeçalho de server/estudio/higgsfield.ts.
+export const MODELOS_PERMITIDOS = ["seedream"] as const;
+export const MODELO_PADRAO = "seedream";
 
 export function resolverModelo(configurado?: string | null): string {
   const m = (configurado || "").trim();
@@ -62,9 +65,13 @@ export function caminhoLocalDaImagem(url: string): string {
 export function montarPrompt(): string {
   return [
     "Vista a pessoa da primeira imagem com a peça de roupa da segunda imagem.",
-    "Preserve o rosto, o corpo, o tom de pele e a pose da pessoa exatamente como estão.",
+    "Preserve o rosto, o corpo, o tom de pele, o cabelo e a pose da pessoa exatamente como estão.",
+    "Reproduza a peça fielmente: cor, tecido, corte, botões e acabamentos como na segunda imagem.",
+    // Sem isto o modelo abre a peça sobre o corpo nu: numa loja de roupas o
+    // resultado precisa ser vestível de ponta a ponta.
+    "A pessoa permanece inteiramente vestida, com as demais roupas preservadas de forma discreta.",
     "Ajuste o caimento da peça ao corpo de forma realista.",
-    "Fundo limpo e neutro, luz suave de estúdio, enquadramento de corpo inteiro.",
+    "Fundo limpo e neutro, luz suave de estúdio, mantendo o enquadramento original da pessoa.",
   ].join(" ");
 }
 

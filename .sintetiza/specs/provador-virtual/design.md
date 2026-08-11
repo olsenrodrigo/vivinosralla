@@ -57,7 +57,7 @@ generalizada, em `server/estudio/types.ts`:
 
 ```ts
 export interface PedidoGeracao {
-  modelo: string;                              // "nano_banana_pro" | "gpt_image_2" | ...
+  modelo: string;                              // "seedream" (endpoint = modelo na REST)
   prompt: string;                              // montado pelo consumidor (preset → prompt no estúdio; template fixo no provador)
   referencias: { caminho: string }[];          // 1..N imagens locais já saneadas — estúdio: 1 · provador: 2
   n?: number;                                  // variações (estúdio usa; provador fixa 1)
@@ -102,7 +102,7 @@ a consumidora.
   `${PUBLIC_URL}/api/provador/webhook/higgsfield`, o segredo é `HIGGSFIELD_WEBHOOK_SECRET`.
 - Os caminhos exatos dos endpoints são conferidos contra a documentação oficial na task de
   implementação — o contrato interno do sistema é a interface, não a URL do provedor.
-- **Allowlist de modelos do provador:** `nano_banana_pro`, `gpt_image_2` — os que aceitam ≥ 2
+- **Allowlist de modelos do provador:** `seedream` — o único desta API que aceita ≥ 2
   imagens de referência. `soul_2` (moda/editorial) aceita só 1 referência: fica fora do provador,
   disponível para o estúdio.
 - `server/estudio/config.ts`: `mock = env.HIGGSFIELD_MOCK === "1" || !keyId || !keySecret` — o
@@ -293,7 +293,7 @@ autorizados — nesse caso REQ-2.2, REQ-2.8 e REQ-6.9 são os candidatos a propr
 | REQ-2.2 | integração | Criar foto na sessão A, `POST /prova` com `sessionId` B → 404 `nao_encontrado`, corpo idêntico ao de token inexistente |
 | REQ-2.3 | integração | Peça com imagem `is_tryon_source` → mock registra essa referência; desmarcar e repetir com cor que tem `image_url` → usa a da cor; sem ambas → usa a `is_main` (`garment_image_id` confere em cada caso) |
 | REQ-2.4 | integração | Após o worker: `provider_job_id` preenchido e `status='processando'` |
-| REQ-2.5 | integração | `UPDATE store_settings SET tryon_model='gpt_image_2'` → mock recebe esse modelo; `NULL` → recebe `nano_banana_pro` |
+| REQ-2.5 | integração | `tryon_model` fora da allowlist ou `NULL` → o adaptador chama `/v1/text2image/seedream`; conferir o eco de `input_params` na submissão, porque campo desconhecido é descartado em silêncio |
 | REQ-2.6 | integração | Simular webhook com segredo correto → arquivo em `uploads/provador/resultado/`, `status='concluida'` |
 | REQ-2.7 | integração | Webhook com segredo errado → 401; status no banco inalterado |
 | REQ-2.8 | integração/propriedade | Entregar o mesmo webhook 3× (e uma vez após a conclusão) → 1 arquivo, 1 transição, `finished_at` inalterado |

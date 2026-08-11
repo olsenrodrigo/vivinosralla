@@ -72,7 +72,7 @@ caimento antes de comprar.
 - **REQ-2.2** — SE o token de foto pertence a outra sessão ou não existe, ENTÃO O SISTEMA DEVE responder HTTP 404 `{"error":"nao_encontrado"}` sem revelar se a foto existe (INV-A)
 - **REQ-2.3** — QUANDO a prova é processada, O SISTEMA DEVE enviar ao provedor a foto da cliente e a foto da peça escolhida nesta ordem de preferência: imagem marcada como fonte de prova → imagem da variação da cor selecionada → imagem principal da peça
 - **REQ-2.4** — QUANDO o provedor aceita o job, O SISTEMA DEVE registrar o identificador do job do provedor e mudar o status para `processando`
-- **REQ-2.5** — ONDE `store_settings.tryon_model` está configurado com um modelo da lista permitida, O SISTEMA DEVE usar esse modelo na chamada ao provedor; sem configuração, DEVE usar `nano_banana_pro`
+- **REQ-2.5** — ONDE `store_settings.tryon_model` está configurado com um modelo da lista permitida, O SISTEMA DEVE usar esse modelo na chamada ao provedor; sem configuração, DEVE usar `seedream`
 - **REQ-2.6** — QUANDO o webhook de conclusão chega com o segredo correto, O SISTEMA DEVE baixar a imagem do provedor, gravá-la com a marca de simulação e mudar o status para `concluida`
 - **REQ-2.7** — SE o webhook chega com segredo ausente ou incorreto, ENTÃO O SISTEMA DEVE responder HTTP 401 e não alterar estado nenhum
 - **REQ-2.8** — QUANDO o mesmo webhook é entregue N vezes, O SISTEMA DEVE produzir o mesmo efeito de uma entrega única, inclusive fora de ordem (INV-D)
@@ -154,7 +154,7 @@ de catálogo, de admin nem de treino de modelo.
 | # | Decisão | Motivo |
 |---|---|---|
 | 1 | Provedor Higgsfield via REST com `fetch` direto, sem SDK | Decisão do dono do repo; nenhuma dependência nova — o repo já integra MercadoPago, Asaas e SmartEnvios com cliente próprio |
-| 2 | Modelo de geração configurável (`tryon_model`), padrão `nano_banana_pro`, allowlist de modelos que aceitam ≥ 2 imagens de referência | O try-on exige foto da pessoa + foto da peça; `soul_2` aceita só 1 referência e fica fora do provador. Mercado muda rápido: modelo é configuração, não código |
+| 2 | Modelo de geração configurável (`tryon_model`), padrão **`seedream`**, allowlist de modelos que aceitam ≥ 2 imagens de referência | O try-on exige foto da pessoa + foto da peça. **Corrigido em 2026-08-11 contra a API real:** na REST do Higgsfield o *endpoint é o modelo* (`/v1/text2image/<modelo>`), e só `seedream` preserva duas referências — `soul` tem um slot único e descarta o excedente **em silêncio**. `nano_banana_pro` e `gpt_image_2` existem no app do provedor, não nesta API |
 | 3 | Consentimento específico e versionado em modal próprio, não no banner de cookies | LGPD exige finalidade específica; o `CookieConsent.tsx` cobre analytics, não tratamento de foto de corpo |
 | 4 | Menoridade tratada por declaração obrigatória de maioridade no termo | Verificação documental de idade é desproporcional para uma prova de roupa; a declaração + proibição nos termos é o tratamento praticável |
 | 5 | Prova é por peça + cor, não por tamanho | Tamanho não muda o render de forma confiável; cor muda a foto de referência. A grade de tamanhos continua no fluxo normal da PDP |
@@ -174,5 +174,5 @@ Para o dono do repo decidir — nenhuma bloqueia a implementação das tasks 1�
 1. **Backup do volume**: `uploads/` é backupeado; manter `uploads/provador/` **fora** da rotina de backup (recomendado — cópia de foto de corpo sobrevivendo ao expurgo contradiz a retenção declarada) ou aceitar que o backup retém até a rotação?
 2. **Termos do Higgsfield sobre treino de modelo**: confirmar na contratação a cláusula de não uso das imagens para treinamento e refleti-la no texto da política de privacidade (REQ-6.11). Se o plano contratado não garantir isso, o texto precisa dizer o contrário — e o dono decide se o recurso vai ao ar assim.
 3. **Valores finais dos limites e TTLs**: 10/h, 8/dia, 1000/mês, 24 h/7 dias foram assumidos; revisar contra o custo real por geração no plano contratado.
-4. **Modelo padrão**: `nano_banana_pro` assumido; validar qualidade de try-on contra `gpt_image_2` num piloto com peças reais antes do go-live.
+4. **Modelo padrão**: ~~`nano_banana_pro` assumido~~ — **resolvido em 2026-08-11**: piloto com peça real (`vn-03`) e foto de pessoa validou `seedream`, único multi-referência da API REST. Rever se o provedor expuser `nano_banana_pro` na REST, que rendeu resultado equivalente pelo app.
 5. **Texto final do termo de consentimento e da seção de privacidade**: redação jurídica é do dono/advogado; a spec fixa o conteúdo mínimo, não a redação.
