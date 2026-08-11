@@ -2,7 +2,7 @@ import {
   contactMessages, adminUsers, categories, products, productImages,
   variants, customers, addresses, cartSessions, cartItems, orders,
   orderItems, orderStatusHistory, paymentTransactions, coupons, subscriptions,
-  productReviews, productRelations, bundles, bundleItems,
+  productReviews, productRelations, bundles, bundleItems, tryonPhotos, tryonGenerations,
   shippingZones, shippingRates, storeSettings,
   type Subscription, type InsertSubscription,
   type ContactMessage, type InsertContactMessage,
@@ -15,6 +15,7 @@ import {
   type Address, type InsertAddress,
   type Order, type InsertOrder,
   type Coupon, type InsertCoupon,
+  type TryonPhoto, type InsertTryonPhoto,
   type StoreSettings,
 } from "@shared/schema";
 import { drizzle } from "drizzle-orm/node-postgres";
@@ -131,6 +132,30 @@ export class EstoqueInsuficienteError extends Error {
 }
 
 export class DatabaseStorage {
+  // ─── Provador Virtual ─────────────────────────────────────────────────────
+  // Sem PII nestas tabelas: a titular é a sessão. O endereço externo é sempre
+  // o token; o id serial não sai daqui.
+  async criarTryonPhoto(data: InsertTryonPhoto): Promise<TryonPhoto> {
+    const [result] = await db.insert(tryonPhotos).values(data).returning();
+    return result;
+  }
+  /** Busca por token E sessão: foto de outra sessão não é encontrável (INV-A). */
+  async getTryonPhotoByToken(token: string, sessionId?: string): Promise<TryonPhoto | undefined> {
+    const cond = sessionId
+      ? and(eq(tryonPhotos.token, token), eq(tryonPhotos.sessionId, sessionId))
+      : eq(tryonPhotos.token, token);
+    const [result] = await db.select().from(tryonPhotos).where(cond);
+    return result;
+  }
+  /** Provas da sessão criadas desde `desde` — cota diária (REQ-5.2). */
+  async contarTryonPorSessao(sessionId: string, desde: Date): Promise<number> {
+    const [r] = await db.select({ n: sql<number>`count(*)::int` })
+      .from(tryonGenerations)
+      .innerJoin(tryonPhotos, eq(tryonGenerations.photoId, tryonPhotos.id))
+      .where(and(eq(tryonPhotos.sessionId, sessionId), sql`${tryonGenerations.createdAt} >= ${desde}`));
+    return r?.n ?? 0;
+  }
+
   // ─── Contact ─────────────────────────────────────────────────────────────
   async createContactMessage(message: InsertContactMessage): Promise<ContactMessage> {
     const [result] = await db.insert(contactMessages).values(message).returning();

@@ -21,6 +21,7 @@ import {
 import { loadConfig as loadMpConfig, validateWebhookSignature as validateMpWebhook } from "./mercadopago";
 import { sendOrderConfirmationEmail, sendShippingEmail } from "./notify";
 import { registerShippingRoutes, createLabelForOrder } from "./smartenvios-integration";
+import { registerProvadorRoutes } from "./provador/routes";
 import { resolvePaymentConfig, methodConfig } from "./gateway/payment-config";
 
 // ─── Saneamento de query params públicos ─────────────────────────────────────
@@ -223,9 +224,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   // Serve uploaded files
   app.use("/uploads", (req, res, next) => {
+    // Foto de corpo da cliente e prova gerada NUNCA saem pelo static público
+    // (REQ-6.12): o acesso é sempre por rota que valida o token. Sem esta
+    // guarda, uploads/provador/ herdaria o mesmo express.static do catálogo e
+    // bastaria adivinhar o nome do arquivo.
+    if (/^\/+provador(\/|$)/i.test(req.path)) {
+      return res.status(404).json({ error: "nao_encontrado" });
+    }
     res.setHeader("Cache-Control", "public, max-age=86400");
     next();
   }, express.static(uploadsDir));
+
+  registerProvadorRoutes(app);
 
   // ──────────────────────────────────────────────────────────────────────────
   // PUBLIC ROUTES
