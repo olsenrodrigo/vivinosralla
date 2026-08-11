@@ -18,6 +18,7 @@ import { storage } from "../storage";
 import { origemDir, resultadoDir } from "./paths";
 import { escolherFotoDaPeca, resolverModelo } from "./service";
 import { aplicarStatus, iniciarFilaProvador } from "./queue";
+import { iniciarExpurgoProvador } from "./purge";
 import { getImageProvider, loadEstudioConfig } from "../estudio/index";
 import { bloqueioParaNovaProva, ipExcedeu } from "./limites";
 import fs from "fs";
@@ -271,6 +272,7 @@ export function registerProvadorRoutes(app: Express): void {
   });
 
   iniciarFilaProvador();
+  iniciarExpurgoProvador();
 }
 
 function ipDe(req: Request): string {

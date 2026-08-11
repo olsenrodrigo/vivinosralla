@@ -249,6 +249,30 @@ export class DatabaseStorage {
       .where(sql`${tryonGenerations.createdAt} >= date_trunc('month', now())`);
     return r?.n ?? 0;
   }
+  /** Provas com resultado vencido e ainda não expurgado (REQ-6.3). */
+  async listarProvasVencidas(agora: Date): Promise<{ id: number; resultPath: string | null }[]> {
+    return db.select({ id: tryonGenerations.id, resultPath: tryonGenerations.resultPath })
+      .from(tryonGenerations)
+      .where(and(isNull(tryonGenerations.purgedAt), sql`${tryonGenerations.expiresAt} < ${agora}`))
+      .limit(500);
+  }
+  /** Fotos vencidas e ainda não expurgadas (REQ-6.2). */
+  async listarFotosVencidas(agora: Date): Promise<{ id: number; filePath: string }[]> {
+    return db.select({ id: tryonPhotos.id, filePath: tryonPhotos.filePath })
+      .from(tryonPhotos)
+      .where(and(isNull(tryonPhotos.purgedAt), sql`${tryonPhotos.expiresAt} < ${agora}`))
+      .limit(500);
+  }
+  async marcarProvasExpurgadas(ids: number[], quando: Date): Promise<void> {
+    if (!ids.length) return;
+    await db.update(tryonGenerations)
+      .set({ purgedAt: quando, resultPath: null })
+      .where(inArray(tryonGenerations.id, ids));
+  }
+  async marcarFotosExpurgadas(ids: number[], quando: Date): Promise<void> {
+    if (!ids.length) return;
+    await db.update(tryonPhotos).set({ purgedAt: quando }).where(inArray(tryonPhotos.id, ids));
+  }
   /** Arquivos a apagar quando a titular exerce o direito de exclusão. */
   async listarArquivosDaFoto(photoId: number): Promise<string[]> {
     const provas = await db.select({ p: tryonGenerations.resultPath })
