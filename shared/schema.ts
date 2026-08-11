@@ -106,6 +106,15 @@ export const storeSettings = pgTable("store_settings", {
   monthlyInterestRate: decimal("monthly_interest_rate", { precision: 5, scale: 4 }).notNull().default("0.0199"),
   reviewsEnabled: boolean("reviews_enabled").notNull().default(true),
   reviewsRequireModeration: boolean("reviews_require_moderation").notNull().default(true),
+  // ─── Provador Virtual ───────────────────────────────────────────────────
+  // Nasce desligado de propósito: recurso público que gasta crédito por uso.
+  tryonEnabled: boolean("tryon_enabled").notNull().default(false),
+  tryonModel: text("tryon_model"),
+  tryonMonthlyLimit: integer("tryon_monthly_limit").notNull().default(1000),
+  tryonSessionDailyLimit: integer("tryon_session_daily_limit").notNull().default(8),
+  tryonTimeoutSeconds: integer("tryon_timeout_seconds").notNull().default(180),
+  tryonPhotoTtlHours: integer("tryon_photo_ttl_hours").notNull().default(24),
+  tryonResultTtlHours: integer("tryon_result_ttl_hours").notNull().default(168),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
@@ -178,6 +187,8 @@ export const productImages = pgTable("product_images", {
   altText: text("alt_text"),
   position: integer("position").notNull().default(0),
   isMain: boolean("is_main").notNull().default(false),
+  // A foto que veste melhor no try-on nem sempre é a principal da vitrine.
+  isTryonSource: boolean("is_tryon_source").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -515,6 +526,56 @@ export const shippingRates = pgTable("shipping_rates", {
 });
 
 // ─── Schemas de validação ─────────────────────────────────────────────────────
+
+// ─── Provador Virtual ─────────────────────────────────────────────────────────
+// Foto de corpo de pessoa identificável é dado pessoal sensível na prática, e a
+// titular é uma sessão anônima, não uma usuária logada. Nenhuma das duas tabelas
+// tem coluna de PII: sem nome, e-mail ou telefone. O acesso é sempre por `token`
+// UUIDv4, nunca pelo `id` serial — id serial em rota pública é enumerável, e
+// enumerar aqui significa varrer fotos de corpo.
+export const tryonPhotos = pgTable("tryon_photos", {
+  id: serial("id").primaryKey(),
+  token: text("token").notNull().unique(),
+  sessionId: text("session_id").notNull(),
+  filePath: text("file_path").notNull(),
+  // Sem a versão não dá para provar QUAL termo a titular aceitou.
+  consentVersion: text("consent_version").notNull(),
+  consentedAt: timestamp("consented_at", { withTimezone: true }).notNull(),
+  adultDeclared: boolean("adult_declared").notNull(),
+  // NOT NULL: toda foto nasce sabendo quando morre.
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  purgedAt: timestamp("purged_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export type TryonPhoto = typeof tryonPhotos.$inferSelect;
+export type InsertTryonPhoto = typeof tryonPhotos.$inferInsert;
+
+export const TRYON_STATUS = ["na_fila", "processando", "concluida", "falhou", "recusada"] as const;
+export type TryonStatus = (typeof TRYON_STATUS)[number];
+
+export const tryonGenerations = pgTable("tryon_generations", {
+  id: serial("id").primaryKey(),
+  token: text("token").notNull().unique(),
+  photoId: integer("photo_id").notNull(),
+  productId: integer("product_id").notNull(),
+  variantId: integer("variant_id"),
+  garmentImageId: integer("garment_image_id"),
+  model: text("model").notNull(),
+  status: text("status").notNull().default("na_fila"),
+  providerJobId: text("provider_job_id"),
+  resultPath: text("result_path"),
+  providerCost: decimal("provider_cost", { precision: 10, scale: 4 }),
+  errorMessage: text("error_message"),
+  expiresAt: timestamp("expires_at", { withTimezone: true }),
+  purgedAt: timestamp("purged_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  finishedAt: timestamp("finished_at", { withTimezone: true }),
+});
+
+export type TryonGeneration = typeof tryonGenerations.$inferSelect;
+export type InsertTryonGeneration = typeof tryonGenerations.$inferInsert;
+
 export const checkoutSchema = z.object({
   // Identificação
   customerName: z.string().min(3),
