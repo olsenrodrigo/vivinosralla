@@ -11,3 +11,7 @@ dist/
 # O que o backoffice grava em runtime (products/, imports/) fica de fora.
 uploads/*
 !uploads/produtos/
+
+# Artefatos locais do Claude Code (worktrees de agente). As instruções do repo
+# ficam no CLAUDE.md/AGENTS.md versionados, não aqui.
+.claude/
