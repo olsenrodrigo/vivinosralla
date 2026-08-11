@@ -16,6 +16,7 @@ import {
   type Order, type InsertOrder,
   type Coupon, type InsertCoupon,
   type TryonPhoto, type InsertTryonPhoto,
+  type TryonGeneration, type InsertTryonGeneration,
   type StoreSettings,
 } from "@shared/schema";
 import { drizzle } from "drizzle-orm/node-postgres";
@@ -146,6 +147,83 @@ export class DatabaseStorage {
       : eq(tryonPhotos.token, token);
     const [result] = await db.select().from(tryonPhotos).where(cond);
     return result;
+  }
+  async getTryonPhotoById(id: number): Promise<TryonPhoto | undefined> {
+    const [r] = await db.select().from(tryonPhotos).where(eq(tryonPhotos.id, id));
+    return r;
+  }
+  async criarTryonGeneration(data: InsertTryonGeneration): Promise<TryonGeneration> {
+    const [r] = await db.insert(tryonGenerations).values(data).returning();
+    return r;
+  }
+  async getTryonGenerationByToken(token: string): Promise<TryonGeneration | undefined> {
+    const [r] = await db.select().from(tryonGenerations).where(eq(tryonGenerations.token, token));
+    return r;
+  }
+  /**
+   * Retira uma prova da fila. SKIP LOCKED impede que dois workers peguem a
+   * mesma e paguem o provedor duas vezes pelo mesmo trabalho.
+   */
+  async reservarProximaProva(): Promise<TryonGeneration | undefined> {
+    // SQL cru pelo SKIP LOCKED, que o query builder não expressa. Devolve só o
+    // id: `RETURNING *` viria em snake_case, fora do mapeamento do Drizzle, e
+    // `prova.photoId` chegaria undefined em quem consome.
+    const r: any = await db.execute(sql`
+      UPDATE tryon_generations SET status = 'processando'
+       WHERE id IN (
+         SELECT id FROM tryon_generations WHERE status = 'na_fila'
+          ORDER BY created_at FOR UPDATE SKIP LOCKED LIMIT 1)
+      RETURNING id`);
+    const id = (r.rows ?? r)[0]?.id;
+    if (id == null) return undefined;
+    const [prova] = await db.select().from(tryonGenerations).where(eq(tryonGenerations.id, Number(id)));
+    return prova;
+  }
+  /** Provas paradas em `processando` — poller e verificação de timeout. */
+  async listarProvasProcessando(limite = 20): Promise<TryonGeneration[]> {
+    return db.select().from(tryonGenerations)
+      .where(eq(tryonGenerations.status, "processando"))
+      .orderBy(asc(tryonGenerations.createdAt)).limit(limite);
+  }
+  async registrarJobDoProvedor(id: number, jobId: string): Promise<void> {
+    await db.update(tryonGenerations).set({ providerJobId: jobId })
+      .where(eq(tryonGenerations.id, id));
+  }
+  /**
+   * Conclusão idempotente (INV-D): a guarda de status faz a 2ª entrega do mesmo
+   * webhook não produzir efeito nenhum. Devolve false quando já estava fechada.
+   */
+  async concluirProva(id: number, dados: { resultPath: string; custo?: number; expiresAt: Date }): Promise<boolean> {
+    const linhas = await db.update(tryonGenerations)
+      .set({
+        status: "concluida", resultPath: dados.resultPath,
+        providerCost: dados.custo != null ? String(dados.custo) : null,
+        expiresAt: dados.expiresAt, finishedAt: new Date(),
+      })
+      .where(and(eq(tryonGenerations.id, id), eq(tryonGenerations.status, "processando")))
+      .returning({ id: tryonGenerations.id });
+    return linhas.length > 0;
+  }
+  /** Fecha como falhou/recusada, com a mesma guarda de idempotência. */
+  async falharProva(id: number, status: "falhou" | "recusada", erro: string): Promise<boolean> {
+    const linhas = await db.update(tryonGenerations)
+      .set({ status, errorMessage: erro.slice(0, 500), finishedAt: new Date() })
+      .where(and(eq(tryonGenerations.id, id), inArray(tryonGenerations.status, ["na_fila", "processando"])))
+      .returning({ id: tryonGenerations.id });
+    return linhas.length > 0;
+  }
+  async getProvaPorJobDoProvedor(jobId: string): Promise<TryonGeneration | undefined> {
+    const [r] = await db.select().from(tryonGenerations)
+      .where(eq(tryonGenerations.providerJobId, jobId));
+    return r;
+  }
+  /** Queda do processo não pode deixar prova presa em `processando` para sempre. */
+  async devolverProvasTravadas(anterioresA: Date): Promise<number> {
+    const linhas = await db.update(tryonGenerations)
+      .set({ status: "na_fila", providerJobId: null })
+      .where(and(eq(tryonGenerations.status, "processando"), sql`${tryonGenerations.createdAt} < ${anterioresA}`))
+      .returning({ id: tryonGenerations.id });
+    return linhas.length;
   }
   /** Provas da sessão criadas desde `desde` — cota diária (REQ-5.2). */
   async contarTryonPorSessao(sessionId: string, desde: Date): Promise<number> {

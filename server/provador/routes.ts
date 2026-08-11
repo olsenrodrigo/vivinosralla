@@ -10,20 +10,16 @@
 import type { Express, Request, Response } from "express";
 import multer from "multer";
 import path from "path";
-import fs from "fs";
 import { randomUUID } from "node:crypto";
 import sharp from "sharp";
 import { z } from "zod";
+import { timingSafeEqual } from "node:crypto";
 import { storage } from "../storage";
+import { origemDir } from "./paths";
+import { escolherFotoDaPeca, resolverModelo } from "./service";
+import { aplicarStatus, iniciarFilaProvador } from "./queue";
+import { getImageProvider, loadEstudioConfig } from "../estudio/index";
 
-const uploadsDir = path.join(process.cwd(), "uploads");
-export const provadorDir = path.join(uploadsDir, "provador");
-export const origemDir = path.join(provadorDir, "origem");
-export const resultadoDir = path.join(provadorDir, "resultado");
-
-for (const d of [provadorDir, origemDir, resultadoDir]) {
-  if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true });
-}
 
 const MAX_BYTES = 10 * 1024 * 1024;
 /** Sem .gif: o filtro do catálogo aceita, o do provador não (REQ-1.5). */
@@ -123,4 +119,89 @@ export function registerProvadorRoutes(app: Express): void {
       }
     });
   });
+  // ── Solicitar a prova ────────────────────────────────────────────────────
+  const provaSchema = z.object({
+    fotoToken: z.string().uuid(),
+    productId: z.number().int().positive(),
+    variantId: z.number().int().positive().optional(),
+  });
+
+  app.post("/api/provador/:sessionId/prova", async (req: Request, res: Response) => {
+    try {
+      const settings = await storage.getStoreSettings();
+      if (!settings?.tryonEnabled) return res.status(404).json({ error: "nao_encontrado" });
+
+      const parsed = provaSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ error: "dados_invalidos" });
+      const { fotoToken, productId, variantId } = parsed.data;
+      const sessionId = String(req.params.sessionId || "").trim();
+
+      // Busca por token E sessão: foto de outra sessão responde igual a foto
+      // inexistente, sem revelar qual dos dois é o caso (REQ-2.2, INV-A).
+      const foto = await storage.getTryonPhotoByToken(fotoToken, sessionId);
+      if (!foto || foto.purgedAt || foto.expiresAt.getTime() < Date.now()) {
+        return res.status(404).json({ error: "nao_encontrado" });
+      }
+
+      // Só peça publicada: o provador não é porta dos fundos para o rascunho.
+      const produtos = await storage.listProducts({ status: "active", published: true, limit: 1000 });
+      const peca = produtos.products.find((p: any) => p.id === productId);
+      if (!peca) return res.status(404).json({ error: "nao_encontrado" });
+
+      if (variantId != null) {
+        // Variante validada contra o produto dono dela (INV-C).
+        const variantes = await storage.getVariantsByProduct(productId);
+        if (!variantes.some((v: any) => v.id === variantId && v.active)) {
+          return res.status(404).json({ error: "nao_encontrado" });
+        }
+      }
+
+      const fotoPeca = await escolherFotoDaPeca(productId, variantId);
+      if (!fotoPeca) return res.status(422).json({ error: "peca_sem_foto" });
+
+      const prova = await storage.criarTryonGeneration({
+        token: randomUUID(),
+        photoId: foto.id,
+        productId,
+        variantId: variantId ?? null,
+        garmentImageId: fotoPeca.imageId,
+        model: resolverModelo(settings.tryonModel),
+      });
+
+      return res.status(202).json({ provaToken: prova.token, status: prova.status });
+    } catch {
+      console.error("[provador] falha ao criar prova");
+      return res.status(500).json({ error: "erro_interno" });
+    }
+  });
+
+  // ── Webhook de conclusão ─────────────────────────────────────────────────
+  app.post("/api/provador/webhook/higgsfield", async (req: Request, res: Response) => {
+    const cfg = loadEstudioConfig(process.env);
+    const enviado = String(req.headers["hf-webhook-secret"] ?? req.query.secret ?? "");
+    // Comparação de tempo constante, mesmo padrão do webhook do Asaas.
+    const ok = Boolean(cfg.webhookSecret) && enviado.length === cfg.webhookSecret.length
+      && timingSafeEqual(Buffer.from(enviado), Buffer.from(cfg.webhookSecret));
+    if (!ok) return res.status(401).json({ error: "nao_autorizado" });
+
+    const jobId = String((req.body as any)?.id ?? (req.body as any)?.job_id ?? "");
+    if (!jobId) return res.status(400).json({ error: "evento_invalido" });
+
+    const prova = await storage.getProvaPorJobDoProvedor(jobId);
+    // Evento órfão termina em 200: reentrega de job desconhecido não é erro do
+    // provedor, e devolver 5xx faria o Higgsfield reenviar para sempre.
+    if (!prova) return res.status(200).json({ ok: true });
+
+    try {
+      // O corpo do webhook não é fonte de verdade: relemos o status no provedor.
+      // Assim um POST forjado com o segredo certo não consegue plantar imagem.
+      const status = await getImageProvider(process.env).consultar(jobId);
+      await aplicarStatus(prova.id, status);
+    } catch {
+      console.error("[provador] falha ao aplicar webhook");
+    }
+    return res.status(200).json({ ok: true });
+  });
+
+  iniciarFilaProvador();
 }
