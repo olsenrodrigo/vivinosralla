@@ -37,6 +37,20 @@ export function log(message: string, source = "express") {
   console.log(`${formattedTime} [${source}] ${message}`);
 }
 
+const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/gi;
+
+/**
+ * Troca UUIDs do caminho por um marcador antes de logar.
+ *
+ * No provador, o token da prova É a credencial que serve a imagem: quem lê o
+ * log consegue baixar foto de corpo de terceiro, e a proteção de URL não
+ * adivinhável some. O mesmo vale para o identificador de sessão de carrinho.
+ * O caminho continua legível para diagnóstico — só o identificador sai.
+ */
+function redigirIdentificadores(path: string): string {
+  return path.replace(UUID, ":id");
+}
+
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
@@ -51,7 +65,7 @@ app.use((req, res, next) => {
   res.on("finish", () => {
     const duration = Date.now() - start;
     if (path.startsWith("/api")) {
-      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
+      let logLine = `${req.method} ${redigirIdentificadores(path)} ${res.statusCode} in ${duration}ms`;
       // LGPD: o corpo da resposta só é logado em rotas de catálogo, que não
       // carregam dado pessoal. Antes a lista era de exceções, e qualquer rota
       // nova (pedidos, clientes, carrinhos abandonados) passava a despejar

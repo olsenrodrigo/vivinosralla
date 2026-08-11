@@ -15,10 +15,13 @@ import sharp from "sharp";
 import { z } from "zod";
 import { timingSafeEqual } from "node:crypto";
 import { storage } from "../storage";
-import { origemDir } from "./paths";
+import { origemDir, resultadoDir } from "./paths";
 import { escolherFotoDaPeca, resolverModelo } from "./service";
 import { aplicarStatus, iniciarFilaProvador } from "./queue";
 import { getImageProvider, loadEstudioConfig } from "../estudio/index";
+import { bloqueioParaNovaProva, ipExcedeu } from "./limites";
+import fs from "fs";
+import fsp from "fs/promises";
 
 
 const MAX_BYTES = 10 * 1024 * 1024;
@@ -65,6 +68,8 @@ export function registerProvadorRoutes(app: Express): void {
         const settings = await storage.getStoreSettings();
         // Kill-switch: com o recurso desligado a rota não existe (REQ-5.6).
         if (!settings?.tryonEnabled) return res.status(404).json({ error: "nao_encontrado" });
+
+        if (ipExcedeu(ipDe(req))) return res.status(429).json({ error: "limite_de_provas" });
 
         // Consentimento é conferido ANTES de qualquer escrita: sem as duas
         // marcações, nada da foto toca o disco (REQ-1.4).
@@ -131,6 +136,8 @@ export function registerProvadorRoutes(app: Express): void {
       const settings = await storage.getStoreSettings();
       if (!settings?.tryonEnabled) return res.status(404).json({ error: "nao_encontrado" });
 
+      if (ipExcedeu(ipDe(req))) return res.status(429).json({ error: "limite_de_provas" });
+
       const parsed = provaSchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ error: "dados_invalidos" });
       const { fotoToken, productId, variantId } = parsed.data;
@@ -155,6 +162,13 @@ export function registerProvadorRoutes(app: Express): void {
           return res.status(404).json({ error: "nao_encontrado" });
         }
       }
+
+      // Custo antes de trabalho: teto mensal, cota diária e prova concorrente.
+      const bloqueio = await bloqueioParaNovaProva(sessionId, {
+        tryonMonthlyLimit: settings.tryonMonthlyLimit,
+        tryonSessionDailyLimit: settings.tryonSessionDailyLimit,
+      });
+      if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
 
       const fotoPeca = await escolherFotoDaPeca(productId, variantId);
       if (!fotoPeca) return res.status(422).json({ error: "peca_sem_foto" });
@@ -203,5 +217,66 @@ export function registerProvadorRoutes(app: Express): void {
     return res.status(200).json({ ok: true });
   });
 
+  // ── Status da prova ──────────────────────────────────────────────────────
+  app.get("/api/provador/prova/:provaToken", async (req: Request, res: Response) => {
+    const par = await storage.getProvaComFoto(String(req.params.provaToken || ""));
+    // Expirada, expurgada ou inexistente respondem igual (REQ-3.6, REQ-6.5).
+    if (!par || par.prova.purgedAt || vencida(par.prova.expiresAt)) {
+      return res.status(404).json({ error: "nao_encontrado" });
+    }
+    const { prova } = par;
+    return res.json({
+      status: prova.status,
+      // O caminho no disco não sai daqui: a imagem vem por rota com token.
+      resultadoUrl: prova.status === "concluida" ? `/api/provador/resultado/${prova.token}` : undefined,
+      erro: prova.errorMessage ?? undefined,
+      variantId: prova.variantId ?? undefined,
+    });
+  });
+
+  // ── Bytes do resultado ───────────────────────────────────────────────────
+  app.get("/api/provador/resultado/:provaToken", async (req: Request, res: Response) => {
+    const par = await storage.getProvaComFoto(String(req.params.provaToken || ""));
+    if (!par || par.prova.purgedAt || vencida(par.prova.expiresAt)
+        || par.prova.status !== "concluida" || !par.prova.resultPath) {
+      return res.status(404).json({ error: "nao_encontrado" });
+    }
+    const caminho = path.resolve(process.cwd(), par.prova.resultPath);
+    // Defesa em profundidade: o caminho vem do banco, mas confinar em
+    // resultadoDir impede que uma linha adulterada sirva arquivo arbitrário.
+    if (!caminho.startsWith(resultadoDir) || !fs.existsSync(caminho)) {
+      return res.status(404).json({ error: "nao_encontrado" });
+    }
+    // Imagem de corpo de pessoa não entra em cache de navegador nem de proxy.
+    res.setHeader("Cache-Control", "private, no-store");
+    res.setHeader("Content-Type", "image/jpeg");
+    return res.sendFile(caminho);
+  });
+
+  // ── Direito de exclusão da titular ───────────────────────────────────────
+  app.delete("/api/provador/:sessionId/foto/:fotoToken", async (req: Request, res: Response) => {
+    const sessionId = String(req.params.sessionId || "").trim();
+    const foto = await storage.getTryonPhotoByToken(String(req.params.fotoToken || ""), sessionId);
+    // Foto de outra sessão responde como inexistente (INV-A).
+    if (!foto) return res.status(404).json({ error: "nao_encontrado" });
+
+    // Executa imediatamente o que o expurgo faria: apaga os arquivos e marca o
+    // registro. A linha fica como evidência de que o expurgo ocorreu.
+    const resultados = await storage.listarArquivosDaFoto(foto.id);
+    for (const rel of [...resultados, foto.filePath]) {
+      await fsp.unlink(path.resolve(process.cwd(), rel)).catch(() => {});
+    }
+    await storage.marcarExpurgado(foto.id);
+    return res.status(204).send();
+  });
+
   iniciarFilaProvador();
+}
+
+function ipDe(req: Request): string {
+  return req.ip || req.socket.remoteAddress || "desconhecido";
+}
+
+function vencida(expiresAt: Date | null): boolean {
+  return Boolean(expiresAt && expiresAt.getTime() < Date.now());
 }

@@ -225,6 +225,49 @@ export class DatabaseStorage {
       .returning({ id: tryonGenerations.id });
     return linhas.length;
   }
+  /** Prova + a foto de origem, numa consulta — evita N+1 nas rotas de status. */
+  async getProvaComFoto(token: string): Promise<{ prova: TryonGeneration; foto: TryonPhoto } | undefined> {
+    const [r] = await db.select({ prova: tryonGenerations, foto: tryonPhotos })
+      .from(tryonGenerations)
+      .innerJoin(tryonPhotos, eq(tryonGenerations.photoId, tryonPhotos.id))
+      .where(eq(tryonGenerations.token, token));
+    return r;
+  }
+  /** Provas abertas da sessão — uma prova concorrente por vez (REQ-5.3). */
+  async temProvaEmAndamento(sessionId: string): Promise<boolean> {
+    const [r] = await db.select({ n: sql<number>`count(*)::int` })
+      .from(tryonGenerations)
+      .innerJoin(tryonPhotos, eq(tryonGenerations.photoId, tryonPhotos.id))
+      .where(and(eq(tryonPhotos.sessionId, sessionId),
+                 inArray(tryonGenerations.status, ["na_fila", "processando"])));
+    return (r?.n ?? 0) > 0;
+  }
+  /** Contagem do mês corrente — teto de custo (REQ-5.4). */
+  async contarTryonDoMes(): Promise<number> {
+    const [r] = await db.select({ n: sql<number>`count(*)::int` })
+      .from(tryonGenerations)
+      .where(sql`${tryonGenerations.createdAt} >= date_trunc('month', now())`);
+    return r?.n ?? 0;
+  }
+  /** Arquivos a apagar quando a titular exerce o direito de exclusão. */
+  async listarArquivosDaFoto(photoId: number): Promise<string[]> {
+    const provas = await db.select({ p: tryonGenerations.resultPath })
+      .from(tryonGenerations).where(eq(tryonGenerations.photoId, photoId));
+    return provas.map((x) => x.p).filter((x): x is string => Boolean(x));
+  }
+  /**
+   * Exclusão imediata pela titular: marca foto e provas como expurgadas. O
+   * registro permanece sem o arquivo — é a evidência de que o expurgo ocorreu.
+   */
+  async marcarExpurgado(photoId: number): Promise<void> {
+    const agora = new Date();
+    await db.transaction(async (trx) => {
+      await trx.update(tryonGenerations)
+        .set({ purgedAt: agora, resultPath: null })
+        .where(eq(tryonGenerations.photoId, photoId));
+      await trx.update(tryonPhotos).set({ purgedAt: agora }).where(eq(tryonPhotos.id, photoId));
+    });
+  }
   /** Provas da sessão criadas desde `desde` — cota diária (REQ-5.2). */
   async contarTryonPorSessao(sessionId: string, desde: Date): Promise<number> {
     const [r] = await db.select({ n: sql<number>`count(*)::int` })
