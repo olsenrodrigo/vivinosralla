@@ -12,7 +12,8 @@
 | 6 | Implementar SEO técnico: metatags, sitemap, robots e JSON-LD | VIVI-43 | REQ-5.1 … REQ-5.5 | 3h | VIVI-42 |
 | 7 | Implementar GEO com llms.txt e feed de catálogo | VIVI-44 | REQ-6.1 … REQ-6.3 | 1h | VIVI-43 |
 | 8 | Instrumentar GA4, Meta Pixel e TikTok com gate de consentimento | VIVI-45 | REQ-7.1 … REQ-7.7 | 2h | VIVI-1 |
-| | **Total** | | | **24h** | |
+| 9 | Exibir grade de tamanhos e troca de foto no hover do card da listagem | VIVI-120 | REQ-2.8 … REQ-2.14 | 4h | — |
+| | **Total** | | | **28h** | |
 
 > Teto contratado do epic: 24h (A1 12h + A2 8h + A4 4h da proposta). A apuração real corre no work
 > log do Plane.
@@ -33,6 +34,13 @@
 | REQ-2.5 | VIVI-40 |
 | REQ-2.6 | VIVI-40 |
 | REQ-2.7 | VIVI-40 |
+| REQ-2.8 | VIVI-120 |
+| REQ-2.9 | VIVI-120 |
+| REQ-2.10 | VIVI-120 |
+| REQ-2.11 | VIVI-120 |
+| REQ-2.12 | VIVI-120 |
+| REQ-2.13 | VIVI-120 |
+| REQ-2.14 | VIVI-120 |
 | REQ-3.1 | VIVI-1, VIVI-41 |
 | REQ-3.2 | VIVI-41 |
 | REQ-3.3 | VIVI-41 |

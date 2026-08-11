@@ -62,6 +62,13 @@ preço, **para** ver só o que serve em mim e cabe no meu orçamento.
 - **REQ-2.5** — SE um parâmetro de filtro chega com tipo inválido (ex.: `minPrice=abc`), ENTÃO O SISTEMA DEVE responder HTTP 400 com `{"error":"parametro_invalido","field":"minPrice"}` e não executar a consulta
 - **REQ-2.6** — QUANDO nenhum resultado atende aos filtros, O SISTEMA DEVE responder HTTP 200 com `products: []` e `total: 0`
 - **REQ-2.7** — QUANDO a listagem é requisitada sem `limit`, O SISTEMA DEVE retornar no máximo 24 peças por página
+- **REQ-2.8** — QUANDO o ponteiro entra no card de uma peça na listagem, O SISTEMA DEVE exibir sobre a foto a grade de tamanhos daquela peça, com um item para cada tamanho distinto entre as variações ativas
+- **REQ-2.9** — QUANDO a grade de tamanhos do card é exibida, O SISTEMA DEVE marcar como indisponível, mantendo visível e não acionável, todo tamanho sem variação ativa com `stock_quantity > 0`
+- **REQ-2.10** — QUANDO a cliente aciona um tamanho na grade do card, O SISTEMA DEVE navegar para a PDP daquela peça com aquele tamanho já selecionado, sem adicionar ao carrinho
+- **REQ-2.11** — QUANDO o ponteiro sai do card, O SISTEMA DEVE ocultar a grade de tamanhos
+- **REQ-2.12** — QUANDO o card recebe foco pelo teclado, O SISTEMA DEVE exibir a grade de tamanhos e permitir acioná-la, do mesmo modo que sob o ponteiro
+- **REQ-2.13** — ENQUANTO a listagem é exibida em dispositivo sem ponteiro fino (`pointer: coarse`), O SISTEMA DEVE não exibir a grade de tamanhos no card, e o toque na foto DEVE levar à PDP
+- **REQ-2.14** — QUANDO o ponteiro entra no card de uma peça com mais de uma foto, O SISTEMA DEVE exibir a segunda foto do catálogo no lugar da capa, e restaurar a capa quando o ponteiro sai
 
 ## REQ-3 — Página de produto com informação de moda
 

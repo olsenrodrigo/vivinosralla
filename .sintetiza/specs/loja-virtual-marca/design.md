@@ -161,6 +161,13 @@ tamanhos com variação ativa; escolher tamanho resolve a variação; `stock_qua
 | REQ-2.5 | integração | `GET /api/store/products?minPrice=abc` → 400 com `field:"minPrice"` |
 | REQ-2.6 | integração | `GET /api/store/products?size=XPP` → 200 com `products: []` e `total: 0` |
 | REQ-2.7 | integração | Seed com 40 peças; `GET /api/store/products` retorna 24 |
+| REQ-2.8 | manual | Listagem em desktop: passar o mouse sobre um card exibe a grade; os itens conferem com os `option1` distintos das variações ativas da peça no banco |
+| REQ-2.9 | manual | Zerar o saldo de uma variação (`UPDATE product_variants SET stock_quantity=0`): o tamanho continua na grade, riscado/esmaecido, e o clique nele não navega |
+| REQ-2.10 | manual | Clicar em "40" no card leva a `/produto/<slug>` com o tamanho 40 já selecionado e o carrinho inalterado (contador segue igual) |
+| REQ-2.11 | manual | Tirar o ponteiro do card: a grade some e a capa volta |
+| REQ-2.12 | manual | Navegar por `Tab` até o card: a grade aparece sem uso de mouse e `Enter` sobre um tamanho leva à PDP |
+| REQ-2.13 | manual | DevTools com emulação de toque (`pointer: coarse`) em 390×844: a grade não aparece e o toque na foto abre a PDP |
+| REQ-2.14 | manual | Peça com 2+ fotos: o hover troca para a segunda imagem do catálogo e a saída do ponteiro restaura a capa |
 | REQ-3.1 | integração | `GET /api/store/products/<slug>` → 200 e o corpo tem `composition`, `measurements`, `images[]`, `variants[]` |
 | REQ-3.2 | manual | PDP com grade P/M/G × Oliva/Vinho: selecionar Vinho deixa visíveis só os tamanhos com variação Vinho ativa |
 | REQ-3.3 | manual | Variação com saldo 0 e `continueSellingOutOfStock=false`: botão desabilitado e rótulo "Esgotado" |
