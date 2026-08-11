@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { trackViewItem, trackAddToCart, useAnalyticsReady } from "@/lib/analytics";
 import ReviewsSection from "@/components/store/ReviewsSection";
 import BundleOffer, { type ApiBundle } from "@/components/store/BundleOffer";
+import ProvadorVirtual from "@/components/store/ProvadorVirtual";
 import { corHex, precoBR, whatsappCom, FRETE_GRATIS_ACIMA } from "@/lib/marca";
 import { descontoPix, PIX_DESCONTO } from "@shared/pagamento";
 
@@ -380,6 +381,12 @@ export default function ProductDetailPage() {
                 {emEstoque ? "Adicionar à sacola" : "Esgotado"}
               </button>
             </div>
+
+            <ProvadorVirtual
+              productId={product.id}
+              variantId={variante?.id ?? null}
+              corLabel={cor}
+            />
 
             <a
               href={whatsappCom(`Oi! Tenho dúvida sobre a peça "${product.title}".`)}
