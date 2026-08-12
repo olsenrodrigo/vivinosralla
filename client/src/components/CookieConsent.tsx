@@ -2,6 +2,28 @@ import { useEffect, useState } from "react";
 import { setAnalyticsConfig, enableAnalytics, type AnalyticsConfig } from "@/lib/analytics";
 
 const CONSENT_KEY = "wl_consent"; // "granted" | "denied"
+const VISITOR_KEY = "wl_visitor";
+/** Versão do texto do aviso. Muda quando o texto muda: o aceite é daquela versão. */
+const POLICY_VERSION = "2026-08-11";
+
+/**
+ * Identificador anônimo de primeira visita, só para provar o aceite (REQ-7.2).
+ * É gerado no navegador e nunca cruzado com pedido, cliente ou e-mail — se
+ * fosse, o registro de consentimento viraria o rastreamento que ele documenta.
+ */
+function visitorId(): string {
+  try {
+    const atual = localStorage.getItem(VISITOR_KEY);
+    if (atual) return atual;
+    const novo = crypto.randomUUID();
+    localStorage.setItem(VISITOR_KEY, novo);
+    return novo;
+  } catch {
+    // Sem localStorage não há como manter identidade entre visitas; um id
+    // efêmero ainda registra que a escolha aconteceu.
+    return crypto.randomUUID();
+  }
+}
 
 export default function CookieConsent() {
   const [visible, setVisible] = useState(false);
@@ -46,6 +68,20 @@ export default function CookieConsent() {
     } catch {
       /* ignore */
     }
+    // Registra a escolha no servidor (REQ-7.2, REQ-7.3). A recusa é registrada
+    // igual ao aceite: provar que a visitante disse não vale tanto quanto
+    // provar que disse sim. Falha de rede não pode travar o banner — a decisão
+    // local já vale, e insistir aqui atrapalharia a navegação.
+    fetch("/api/store/consent", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        visitorId: visitorId(),
+        decision: granted ? "granted" : "denied",
+        policyVersion: POLICY_VERSION,
+      }),
+    }).catch(() => {});
+
     if (granted) enableAnalytics();
     setVisible(false);
   };

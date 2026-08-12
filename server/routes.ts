@@ -253,6 +253,84 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   // Store settings (public)
+  /*
+   * Registro do consentimento de cookies (REQ-7.2, REQ-7.3).
+   *
+   * Guarda o mínimo que prova o aceite: um identificador anônimo de visitante,
+   * a decisão e a versão da política. NÃO guarda IP nem user-agent — o registro
+   * existe para provar que houve escolha, não para reconhecer quem escolheu.
+   * Guardar IP aqui transformaria a prova de consentimento em rastreamento, que
+   * é exatamente o que a visitante pode ter acabado de recusar.
+   */
+  const consentimentoSchema = z.object({
+    visitorId: z.string().trim().min(8).max(64),
+    decision: z.enum(["granted", "denied"]),
+    policyVersion: z.string().trim().min(1).max(40),
+  });
+
+  app.post("/api/store/consent", async (req, res) => {
+    const parsed = consentimentoSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "payload_invalido" });
+    }
+    const settings = await storage.getStoreSettings();
+    // A loja pode desligar o registro; o banner continua funcionando.
+    if (settings && settings.consentLogEnabled === false) {
+      return res.status(204).end();
+    }
+    await storage.registrarConsentimento(parsed.data);
+    return res.status(204).end();
+  });
+
+  // ─── Coleções e lookbooks (vitrine pública) ────────────────────────────────
+  app.get("/api/store/collections", async (_req, res) => {
+    return res.json({ collections: await storage.listActiveCollections() });
+  });
+
+  app.get("/api/store/collections/:slug", async (req, res) => {
+    const colecao = await storage.getActiveCollectionBySlug(String(req.params.slug || ""));
+    // Coleção inativa responde igual a inexistente: o que ainda não estreou
+    // não se anuncia pela diferença de erro.
+    if (!colecao) return res.status(404).json({ error: "nao_encontrado" });
+
+    const prods = await storage.getCollectionProducts(colecao.id);
+    const ids = prods.map(p => p.id);
+    const [imagens, tamanhos] = await Promise.all([
+      storage.getImagesForProducts(ids),
+      storage.getSizesForProducts(ids),
+    ]);
+    return res.json({
+      collection: colecao,
+      products: prods.map(p => {
+        const imgs = imagens.get(p.id) ?? [];
+        return {
+          ...p,
+          mainImage: imgs.find(i => i.isMain)?.url || imgs[0]?.url || null,
+          images: imgs.slice(0, 2),
+          tamanhos: tamanhos.get(p.id) ?? [],
+        };
+      }),
+    });
+  });
+
+  app.get("/api/store/lookbooks", async (_req, res) => {
+    return res.json({ lookbooks: await storage.listActiveLookbooks() });
+  });
+
+  app.get("/api/store/lookbooks/:slug", async (req, res) => {
+    const look = await storage.getActiveLookbookBySlug(String(req.params.slug || ""));
+    if (!look) return res.status(404).json({ error: "nao_encontrado" });
+    const prods = await storage.getLookbookProducts(look.id);
+    const imagens = await storage.getImagesForProducts(prods.map(p => p.id));
+    return res.json({
+      lookbook: look,
+      products: prods.map(p => {
+        const imgs = imagens.get(p.id) ?? [];
+        return { ...p, mainImage: imgs.find(i => i.isMain)?.url || imgs[0]?.url || null };
+      }),
+    });
+  });
+
   app.get("/api/store/settings", async (_req, res) => {
     const s = await storage.getStoreSettings();
     // never expose secrets to public
@@ -1292,6 +1370,16 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if ("analyticsConfig" in body) {
       const raw = body.analyticsConfig;
       if (raw && typeof raw === "object") {
+        // Chave fora da allowlist REPROVA a requisição (REQ-7.7). Antes ela era
+        // descartada em silêncio: quem configurasse `metaAccessToken` recebia
+        // 200 e ia embora achando que o segredo tinha sido guardado — e um
+        // token de Conversions API não pode viver num campo que vai ao front.
+        const desconhecidas = Object.keys(raw).filter(
+          k => !(ANALYTICS_CONFIG_KEYS as string[]).includes(k),
+        );
+        if (desconhecidas.length) {
+          return res.status(400).json({ error: "chave_nao_permitida", fields: desconhecidas });
+        }
         const out: Record<string, unknown> = {};
         for (const k of ANALYTICS_CONFIG_KEYS) {
           if (!(k in raw)) continue;
@@ -1620,6 +1708,117 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.get("/api/admin/coupons", requireAdmin, async (_req, res) => {
     return res.json(await storage.listCoupons());
   });
+  // ─── Coleções e lookbooks (admin) ──────────────────────────────────────────
+  // Slug entra na URL pública da coleção: só minúscula, número e hífen.
+  const colecaoSchema = z.object({
+    name: z.string().trim().min(3).max(120),
+    slug: z.string().trim().regex(/^[a-z0-9-]+$/, "slug_invalido").max(120),
+    description: z.string().max(2000).optional(),
+    season: z.string().max(60).optional(),
+    coverImageUrl: z.string().max(500).optional(),
+    sortOrder: z.number().int().min(0).optional(),
+    active: z.boolean().optional(),
+  });
+
+  /** Campos inválidos em lista, para o admin corrigir sem adivinhar (REQ-4.6). */
+  const camposInvalidos = (e: z.ZodError) =>
+    e.issues.map(i => i.path.join(".")).filter(Boolean);
+
+  app.post("/api/admin/collections", requireAdmin, async (req, res) => {
+    const parsed = colecaoSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "payload_invalido", fields: camposInvalidos(parsed.error) });
+    }
+    try {
+      const criada = await storage.createCollection(parsed.data);
+      return res.status(201).json({ id: criada.id, slug: criada.slug });
+    } catch (err: any) {
+      // 23505 = unique_violation. A corrida entre duas criações do mesmo slug
+      // é resolvida pelo banco, não por um SELECT antes do INSERT.
+      if (err?.code === "23505") return res.status(409).json({ error: "slug_duplicado" });
+      throw err;
+    }
+  });
+
+  app.get("/api/admin/collections", requireAdmin, async (_req, res) => {
+    return res.json({ collections: await storage.listAllCollections() });
+  });
+
+  app.put("/api/admin/collections/:id", requireAdmin, async (req, res) => {
+    const id = idValido(req.params.id);
+    if (!id) return res.status(400).json({ error: "payload_invalido", fields: ["id"] });
+    const parsed = colecaoSchema.partial().safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "payload_invalido", fields: camposInvalidos(parsed.error) });
+    }
+    try {
+      const atualizada = await storage.updateCollection(id, parsed.data);
+      if (!atualizada) return res.status(404).json({ error: "nao_encontrado" });
+      return res.json(atualizada);
+    } catch (err: any) {
+      if (err?.code === "23505") return res.status(409).json({ error: "slug_duplicado" });
+      throw err;
+    }
+  });
+
+  const itensSchema = z.object({
+    items: z.array(z.object({
+      productId: z.number().int().positive(),
+      variantId: z.number().int().positive().optional(),
+      sortOrder: z.number().int().min(0),
+    })).max(200),
+  });
+
+  app.put("/api/admin/collections/:id/products", requireAdmin, async (req, res) => {
+    const id = idValido(req.params.id);
+    if (!id) return res.status(400).json({ error: "payload_invalido", fields: ["id"] });
+    const parsed = itensSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "payload_invalido", fields: camposInvalidos(parsed.error) });
+    }
+    await storage.setCollectionProducts(id, parsed.data.items.map(i => ({
+      productId: i.productId, sortOrder: i.sortOrder,
+    })));
+    return res.json({ ok: true, total: parsed.data.items.length });
+  });
+
+  const lookbookSchema = z.object({
+    title: z.string().trim().min(3).max(160),
+    slug: z.string().trim().regex(/^[a-z0-9-]+$/, "slug_invalido").max(160),
+    imageUrl: z.string().trim().min(1).max(500),
+    collectionId: z.number().int().positive().optional(),
+    sortOrder: z.number().int().min(0).optional(),
+    active: z.boolean().optional(),
+  });
+
+  app.post("/api/admin/lookbooks", requireAdmin, async (req, res) => {
+    const parsed = lookbookSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "payload_invalido", fields: camposInvalidos(parsed.error) });
+    }
+    try {
+      const criado = await storage.createLookbook(parsed.data);
+      return res.status(201).json({ id: criado.id, slug: criado.slug });
+    } catch (err: any) {
+      if (err?.code === "23505") return res.status(409).json({ error: "slug_duplicado" });
+      throw err;
+    }
+  });
+
+  app.put("/api/admin/lookbooks/:id/items", requireAdmin, async (req, res) => {
+    const id = idValido(req.params.id);
+    if (!id) return res.status(400).json({ error: "payload_invalido", fields: ["id"] });
+    const parsed = itensSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "payload_invalido", fields: camposInvalidos(parsed.error) });
+    }
+    if (!(await storage.getLookbookById(id))) return res.status(404).json({ error: "nao_encontrado" });
+    // Troca o conjunto inteiro em transação: o look nunca fica meio montado
+    // na vitrine, com metade das peças da versão nova e metade da antiga.
+    await storage.setLookbookItems(id, parsed.data.items);
+    return res.json({ ok: true, total: parsed.data.items.length });
+  });
+
   app.post("/api/admin/coupons", requireAdmin, async (req, res) => {
     try {
       const coupon = await storage.createCoupon({

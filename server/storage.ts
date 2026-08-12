@@ -4,6 +4,9 @@ import {
   orderItems, orderStatusHistory, paymentTransactions, coupons, subscriptions,
   productReviews, productRelations, bundles, bundleItems, tryonPhotos, tryonGenerations,
   shippingZones, shippingRates, storeSettings,
+  collections, collectionProducts, lookbooks, lookbookItems, consentEvents,
+  type Collection, type InsertCollection,
+  type Lookbook, type InsertLookbook,
   type Subscription, type InsertSubscription,
   type ContactMessage, type InsertContactMessage,
   type AdminUser, type InsertAdminUser,
@@ -500,6 +503,129 @@ export class DatabaseStorage {
       else lista.push({ tamanho, disponivel });
     }
     return mapa;
+  }
+
+  /**
+   * Registra a escolha da visitante sobre rastreio (REQ-7.2, REQ-7.3).
+   * Append-only: cada mudança de ideia vira uma linha nova, porque o que
+   * importa provar é o que valia em cada momento, não o estado final.
+   */
+  async registrarConsentimento(dados: {
+    visitorId: string; decision: string; policyVersion: string;
+  }): Promise<void> {
+    await db.insert(consentEvents).values(dados);
+  }
+
+  // ─── Coleções e lookbooks ─────────────────────────────────────────────────
+
+  /** Coleções ativas para a vitrine, na ordem de exibição. */
+  async listActiveCollections(): Promise<Collection[]> {
+    return db.select().from(collections)
+      .where(eq(collections.active, true))
+      .orderBy(asc(collections.sortOrder), asc(collections.id));
+  }
+
+  async listAllCollections(): Promise<Collection[]> {
+    return db.select().from(collections).orderBy(asc(collections.sortOrder), asc(collections.id));
+  }
+
+  async getActiveCollectionBySlug(slug: string): Promise<Collection | undefined> {
+    const [c] = await db.select().from(collections)
+      .where(and(eq(collections.slug, slug), eq(collections.active, true)));
+    return c;
+  }
+
+  /**
+   * Peças de uma coleção, só as publicadas (REQ-4.4), na ordem que a
+   * administradora montou (REQ-4.3). O JOIN resolve tudo numa consulta: montar
+   * a vitrine da coleção não pode consultar peça por peça.
+   */
+  async getCollectionProducts(collectionId: number): Promise<Product[]> {
+    const linhas = await db
+      .select({ p: products })
+      .from(collectionProducts)
+      .innerJoin(products, eq(products.id, collectionProducts.productId))
+      .where(and(
+        eq(collectionProducts.collectionId, collectionId),
+        eq(products.published, true),
+        eq(products.status, "active"),
+      ))
+      .orderBy(asc(collectionProducts.sortOrder), asc(collectionProducts.id));
+    return linhas.map(l => l.p);
+  }
+
+  async createCollection(data: InsertCollection): Promise<Collection> {
+    const [c] = await db.insert(collections).values(data).returning();
+    return c;
+  }
+
+  async updateCollection(id: number, data: Partial<InsertCollection>): Promise<Collection | undefined> {
+    const [c] = await db.update(collections).set(data).where(eq(collections.id, id)).returning();
+    return c;
+  }
+
+  /** Substitui as peças da coleção em transação: nunca fica meio montada. */
+  async setCollectionProducts(
+    collectionId: number,
+    itens: { productId: number; sortOrder: number }[],
+  ): Promise<void> {
+    await db.transaction(async trx => {
+      await trx.delete(collectionProducts).where(eq(collectionProducts.collectionId, collectionId));
+      if (itens.length) {
+        await trx.insert(collectionProducts).values(itens.map(i => ({ ...i, collectionId })));
+      }
+    });
+  }
+
+  async listActiveLookbooks(): Promise<Lookbook[]> {
+    return db.select().from(lookbooks)
+      .where(eq(lookbooks.active, true))
+      .orderBy(asc(lookbooks.sortOrder), asc(lookbooks.id));
+  }
+
+  async getLookbookById(id: number): Promise<Lookbook | undefined> {
+    const [l] = await db.select().from(lookbooks).where(eq(lookbooks.id, id));
+    return l;
+  }
+
+  async getActiveLookbookBySlug(slug: string): Promise<Lookbook | undefined> {
+    const [l] = await db.select().from(lookbooks)
+      .where(and(eq(lookbooks.slug, slug), eq(lookbooks.active, true)));
+    return l;
+  }
+
+  async createLookbook(data: InsertLookbook): Promise<Lookbook> {
+    const [l] = await db.insert(lookbooks).values(data).returning();
+    return l;
+  }
+
+  /** Peças do look, só publicadas (REQ-4.4), na ordem montada (REQ-4.3). */
+  async getLookbookProducts(lookbookId: number): Promise<(Product & { variantId: number | null })[]> {
+    const linhas = await db
+      .select({ p: products, variantId: lookbookItems.variantId })
+      .from(lookbookItems)
+      .innerJoin(products, eq(products.id, lookbookItems.productId))
+      .where(and(
+        eq(lookbookItems.lookbookId, lookbookId),
+        eq(products.published, true),
+        eq(products.status, "active"),
+      ))
+      .orderBy(asc(lookbookItems.sortOrder), asc(lookbookItems.id));
+    return linhas.map(l => ({ ...l.p, variantId: l.variantId }));
+  }
+
+  async setLookbookItems(
+    lookbookId: number,
+    itens: { productId: number; variantId?: number | null; sortOrder: number }[],
+  ): Promise<void> {
+    await db.transaction(async trx => {
+      await trx.delete(lookbookItems).where(eq(lookbookItems.lookbookId, lookbookId));
+      if (itens.length) {
+        await trx.insert(lookbookItems).values(itens.map(i => ({
+          lookbookId, productId: i.productId, variantId: i.variantId ?? null, sortOrder: i.sortOrder,
+        })));
+      }
+    });
   }
 
   /** Opções disponíveis para montar a UI de filtros da vitrine. */
