@@ -71,13 +71,26 @@ function productOrderBy(sort: ProductSort = "newest") {
 /**
  * Produto tem ao menos uma variante ativa cuja opção está entre os valores.
  * Usa EXISTS para não multiplicar linhas no join (o que quebraria o count).
+ *
+ * `comSaldo` separa dois filtros que parecem iguais e não são:
+ *
+ *   - TAMANHO (REQ-2.1) exige saldo. Quem filtra por M está perguntando "o que
+ *     serve em mim e posso comprar hoje" — devolver a peça com o M zerado é
+ *     levar a cliente até a PDP para encontrar "Esgotado".
+ *   - COR (REQ-2.2) não exige. Filtrar por Preto é navegação de estilo: a peça
+ *     preta existe, e talvez sirva num tamanho que ela nem tinha considerado.
+ *
+ * O critério fala em `stock_quantity > 0` literalmente. Peça marcada para
+ * vender sem estoque também some do filtro de tamanho — hoje nenhuma está, e
+ * mudar isso é decisão de negócio, não de implementação.
  */
-function variantOptionExists(column: AnyPgColumn, values: string[]) {
+function variantOptionExists(column: AnyPgColumn, values: string[], comSaldo = false) {
+  const saldo = comSaldo ? sql` AND ${variants.stockQuantity} > 0` : sql``;
   return sql`EXISTS (
     SELECT 1 FROM ${variants}
     WHERE ${variants.productId} = ${products.id}
       AND ${variants.active} = true
-      AND ${column} IN (${sql.join(values.map(v => sql`${v}`), sql`, `)})
+      AND ${column} IN (${sql.join(values.map(v => sql`${v}`), sql`, `)})${saldo}
   )`;
 }
 
@@ -402,7 +415,7 @@ export class DatabaseStorage {
       );
     }
     // Tamanho e cor são condições independentes (AND entre elas, OR dentro de cada uma)
-    if (opts.sizes?.length) conditions.push(variantOptionExists(variants.option1, opts.sizes));
+    if (opts.sizes?.length) conditions.push(variantOptionExists(variants.option1, opts.sizes, true));
     if (opts.colors?.length) conditions.push(variantOptionExists(variants.option2, opts.colors));
     // price é DECIMAL — comparar como numeric para não cair em comparação textual
     if (opts.minPrice !== undefined) conditions.push(sql`${products.price}::numeric >= ${opts.minPrice}`);
@@ -435,6 +448,56 @@ export class DatabaseStorage {
       const lista = mapa.get(img.productId);
       if (lista) lista.push(img);
       else mapa.set(img.productId, [img]);
+    }
+    return mapa;
+  }
+
+  /**
+   * Tamanhos de cada peça para a grade do card na listagem (REQ-2.8, REQ-2.9).
+   *
+   * Uma consulta para todas as peças da página, no mesmo padrão de
+   * getImagesForProducts — a grade aparece em 24 cards por vez, e uma consulta
+   * por card seria N+1 na rota mais acessada da loja.
+   *
+   * `option1` é Tamanho por convenção do repo. Um tamanho fica disponível se
+   * QUALQUER variação ativa dele tem saldo (ou vende sem estoque): a mesma peça
+   * em duas cores pode ter M só numa delas, e o card não escolhe cor.
+   */
+  async getSizesForProducts(
+    productIds: number[],
+  ): Promise<Map<number, { tamanho: string; disponivel: boolean }[]>> {
+    const mapa = new Map<number, { tamanho: string; disponivel: boolean }[]>();
+    if (!productIds.length) return mapa;
+
+    // `continue_selling_out_of_stock` é do produto, não da variação: o join
+    // evita ter que consultar a peça de novo só para saber se vende zerada.
+    // A ordem é a de cadastro (id), que no seed já segue a grade PP→GG.
+    const rows = await db
+      .select({
+        productId: variants.productId,
+        tamanho: variants.option1,
+        estoque: variants.stockQuantity,
+        vendeSemEstoque: products.continueSellingOutOfStock,
+      })
+      .from(variants)
+      .innerJoin(products, eq(products.id, variants.productId))
+      .where(and(inArray(variants.productId, productIds), eq(variants.active, true)))
+      .orderBy(asc(variants.id));
+
+    for (const v of rows) {
+      const tamanho = (v.tamanho ?? "").trim();
+      if (!tamanho) continue;
+      const disponivel = (v.estoque ?? 0) > 0 || Boolean(v.vendeSemEstoque);
+      const lista = mapa.get(v.productId);
+      if (!lista) {
+        mapa.set(v.productId, [{ tamanho, disponivel }]);
+        continue;
+      }
+      // Mesmo tamanho em cores diferentes vira uma entrada só; basta uma
+      // variação com saldo para o tamanho contar como disponível.
+      const existente = lista.find(t => t.tamanho === tamanho);
+      if (existente) existente.disponivel ||= disponivel;
+      else lista.push({ tamanho, disponivel });
     }
     return mapa;
   }

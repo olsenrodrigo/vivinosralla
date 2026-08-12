@@ -14,6 +14,8 @@ export interface ProdutoCard {
   stockQuantity: number;
   status: string;
   cores?: string[];
+  /** Grade do hover: um item por tamanho distinto entre as variações ativas. */
+  tamanhos?: { tamanho: string; disponivel: boolean }[];
 }
 
 interface ProductCardProps {
@@ -29,11 +31,20 @@ interface ProductCardProps {
  * imagem sem tirar a cliente da grade — dá para conferir o caimento de
  * costas antes de decidir abrir a peça.
  *
+ * Com o ponteiro sobre a chapa, a segunda foto entra no lugar da capa e a
+ * grade de tamanhos sobe por baixo (REQ-2.8, REQ-2.14): dá para varrer a
+ * vitrine sabendo o que serve, sem abrir peça por peça.
+ *
  * Roupa exige escolher tamanho, então o card NÃO adiciona ao carrinho
- * direto: o clique leva à página do produto.
+ * direto: escolher o tamanho aqui leva à peça com ele já selecionado
+ * (REQ-2.10). A cliente ainda vê medida e composição antes de comprar.
  */
 export default function ProductCard({ product, priority = false }: ProductCardProps) {
   const [indice, setIndice] = useState(0);
+  // Hover e foco compartilham o mesmo estado: sem isso a grade seria
+  // inalcançável por teclado (REQ-2.12). `pointer: coarse` nunca liga —
+  // no toque não existe hover, e o dedo na foto tem de abrir a peça (REQ-2.13).
+  const [aberto, setAberto] = useState(false);
 
   const emEstoque = product.stockQuantity > 0;
   const temDesconto =
@@ -47,8 +58,14 @@ export default function ProductCard({ product, priority = false }: ProductCardPr
   const fotos = capa
     ? [capa, ...(product.images ?? []).map(i => i.url).filter(u => u !== capa)]
     : [];
-  const atual = fotos[indice] ?? capa;
   const varias = fotos.length > 1;
+  // A troca no hover só vale enquanto a cliente não assumiu o comando pelas
+  // setas: depois disso, mandar a foto de volta sozinha seria roubo de controle.
+  const trocaNoHover = aberto && varias && indice === 0;
+  const atual = (trocaNoHover ? fotos[1] : fotos[indice]) ?? capa;
+
+  const tamanhos = product.tamanhos ?? [];
+  const mostraGrade = aberto && emEstoque && tamanhos.length > 0;
 
   const irPara = (passo: number) => (e: React.MouseEvent) => {
     e.preventDefault();
@@ -57,7 +74,16 @@ export default function ProductCard({ product, priority = false }: ProductCardPr
   };
 
   return (
-    <article className="group relative">
+    <article
+      className="group relative"
+      onMouseEnter={() => setAberto(true)}
+      onMouseLeave={() => setAberto(false)}
+      // Foco em qualquer elemento interno abre a grade; sair dela fecha.
+      onFocus={() => setAberto(true)}
+      onBlur={e => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setAberto(false);
+      }}
+    >
       <div className="plate aspect-fashion">
         {atual ? (
           <img
@@ -110,6 +136,39 @@ export default function ProductCard({ product, priority = false }: ProductCardPr
         {!emEstoque && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-vn-ice/75">
             <span className="nav-label border border-vn-ink px-4 py-2 text-vn-ink">Esgotado</span>
+          </div>
+        )}
+
+        {/* Grade de tamanhos (REQ-2.8 … REQ-2.12).
+            z-30 fica acima do link esticado (z-10) e das setas (z-20), senão o
+            clique no tamanho seria engolido pela capa clicável do card.
+            `hidden` até md e `pointer-coarse:hidden`: no toque não há hover, e
+            o dedo na foto precisa abrir a peça (REQ-2.13). */}
+        {mostraGrade && (
+          <div className="pointer-coarse:hidden absolute inset-x-0 bottom-0 z-30 hidden justify-center gap-1.5 overflow-x-auto bg-background/92 px-3 py-2.5 backdrop-blur-[2px] md:flex">
+            {tamanhos.map(({ tamanho, disponivel }) =>
+              disponivel ? (
+                <Link
+                  key={tamanho}
+                  href={`/loja/produto/${product.slug}?tamanho=${encodeURIComponent(tamanho)}`}
+                  aria-label={`${product.title}, tamanho ${tamanho}`}
+                  className="nav-label flex h-9 min-w-9 shrink-0 items-center justify-center border border-vn-olive-200 px-2 text-vn-ink no-underline transition-colors hover:border-vn-olive-600 hover:bg-vn-olive-600 hover:text-white focus-visible:border-vn-olive-600"
+                >
+                  {tamanho}
+                </Link>
+              ) : (
+                // Esgotado continua visível e não acionável (REQ-2.9): sumir
+                // com ele esconderia que a peça existe naquele tamanho.
+                <span
+                  key={tamanho}
+                  aria-disabled="true"
+                  title={`Tamanho ${tamanho} esgotado`}
+                  className="nav-label flex h-9 min-w-9 shrink-0 items-center justify-center border border-vn-olive-200/50 px-2 text-vn-ink-soft/45 line-through"
+                >
+                  {tamanho}
+                </span>
+              ),
+            )}
           </div>
         )}
       </div>

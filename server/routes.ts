@@ -317,10 +317,31 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       typeof v === "string"
         ? v.split(",").map(s => limparTexto(s)).filter(Boolean)
         : undefined;
-    const num = (v: unknown) => {
-      const n = Number(v);
-      return typeof v === "string" && v !== "" && Number.isFinite(n) ? n : undefined;
+    /*
+     * Faixa de preço, validada na borda (REQ-2.5, regra 7 do harness).
+     *
+     * Duas grafias aceitas de propósito: a spec contratou `minPrice`/`maxPrice`
+     * e a vitrine nasceu mandando `min_price`/`max_price`. Aceitar só uma
+     * quebraria um dos lados sem ganho nenhum.
+     *
+     * Antes disto, `min_price=abc` virava NaN, caía em `undefined` e a busca
+     * respondia 200 ignorando o filtro em silêncio: a cliente pedia uma faixa
+     * de preço e recebia a vitrine inteira, sem saber que o filtro não pegou.
+     */
+    const lerPreco = (camel: string, snake: string) => {
+      const bruto = (req.query as any)[camel] ?? (req.query as any)[snake];
+      if (bruto === undefined || bruto === "") return { ok: true as const, valor: undefined };
+      const n = Number(bruto);
+      if (typeof bruto !== "string" || !Number.isFinite(n) || n < 0) {
+        return { ok: false as const, campo: camel };
+      }
+      return { ok: true as const, valor: n };
     };
+
+    const minimo = lerPreco("minPrice", "min_price");
+    if (!minimo.ok) return res.status(400).json({ error: "parametro_invalido", field: minimo.campo });
+    const maximo = lerPreco("maxPrice", "max_price");
+    if (!maximo.ok) return res.status(400).json({ error: "parametro_invalido", field: maximo.campo });
     const { products: prods, total } = await storage.listProducts({
       categoryId: idValido(category),
       status: "active", published: true,
@@ -328,18 +349,24 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       search: limparTexto(search) || undefined, limit: lim, offset: off,
       sizes: csv(req.query.size),
       colors: csv(req.query.color),
-      minPrice: num(req.query.min_price),
-      maxPrice: num(req.query.max_price),
+      minPrice: minimo.valor,
+      maxPrice: maximo.valor,
       sort: parseProductSort(req.query.sort),
     });
     // attach main image + as 2 primeiras (o card usa a segunda no hover)
-    const porProduto = await storage.getImagesForProducts(prods.map(p => p.id));
+    const ids = prods.map(p => p.id);
+    const [porProduto, tamanhosPorProduto] = await Promise.all([
+      storage.getImagesForProducts(ids),
+      storage.getSizesForProducts(ids),
+    ]);
     const enriched = prods.map(p => {
       const imgs = porProduto.get(p.id) ?? [];
       return {
         ...p,
         mainImage: imgs.find(i => i.isMain)?.url || imgs[0]?.url || null,
         images: imgs.slice(0, 2),
+        // Grade de tamanhos do hover do card (REQ-2.8, REQ-2.9).
+        tamanhos: tamanhosPorProduto.get(p.id) ?? [],
       };
     });
     return res.json({ products: enriched, total, page: Number(page), pages: Math.ceil(total / lim) });
@@ -347,7 +374,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.get("/api/store/products/:slug", async (req, res) => {
     const product = await storage.getPublicProductBySlug(req.params.slug);
-    if (!product) return res.status(404).json({ message: "Produto não encontrado" });
+    // Slug inexistente e peça em rascunho respondem igual: revelar a diferença
+    // entregaria o calendário de lançamento da loja (REQ-3.4).
+    if (!product) return res.status(404).json({ error: "nao_encontrado" });
     const [images, variantList] = await Promise.all([
       storage.getProductImages(product.id),
       storage.getVariantsByProduct(product.id),
