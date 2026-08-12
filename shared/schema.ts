@@ -1,8 +1,13 @@
 import { sql } from "drizzle-orm";
 import {
   pgTable, text, varchar, serial, timestamp, integer, boolean,
-  decimal, jsonb, pgEnum
+  decimal, jsonb, pgEnum, customType
 } from "drizzle-orm/pg-core";
+
+/** `bytea` não tem tipo nativo no Drizzle; a chave do provedor vive cifrada. */
+const bytea = customType<{ data: Buffer; driverData: Buffer }>({
+  dataType: () => "bytea",
+});
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -115,6 +120,21 @@ export const storeSettings = pgTable("store_settings", {
   tryonTimeoutSeconds: integer("tryon_timeout_seconds").notNull().default(180),
   tryonPhotoTtlHours: integer("tryon_photo_ttl_hours").notNull().default(24),
   tryonResultTtlHours: integer("tryon_result_ttl_hours").notNull().default(168),
+  consentLogEnabled: boolean("consent_log_enabled").notNull().default(true),
+  // Espelha PIX_DESCONTO de shared/pagamento.ts, agora ajustável sem deploy.
+  // Front e back precisam continuar lendo a MESMA regra: exibir um percentual
+  // e cobrar outro já foi bug aqui.
+  pixDiscountPercent: decimal("pix_discount_percent", { precision: 5, scale: 2 }).notNull().default("5.00"),
+  pickupEnabled: boolean("pickup_enabled").notNull().default(true),
+  // Segredo: nunca em resposta de API, nunca em log (regra 9 do harness).
+  asaasWebhookToken: text("asaas_webhook_token"),
+  // Estúdio Visual: a chave do provedor é cifrada em repouso (mesmo padrão do
+  // certificado fiscal) e o teto mensal é trava de custo — gerar imagem é a
+  // única operação da loja que gasta dinheiro por clique de admin.
+  studioProvider: text("studio_provider"),
+  studioApiKeyEncrypted: bytea("studio_api_key_encrypted"),
+  studioMonthlyLimit: integer("studio_monthly_limit").notNull().default(1500),
+  studioTimeoutSeconds: integer("studio_timeout_seconds").notNull().default(120),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
@@ -171,9 +191,19 @@ export const products = pgTable("products", {
   seoTitle: text("seo_title"),
   seoDescription: text("seo_description"),
   ncmCode: text("ncm_code"),
+  // Ficha de moda: o que faz decidir comprar roupa sem provar.
+  composition: text("composition"),
+  // Medidas por tamanho, lidas sempre inteiras junto com a peça e nunca
+  // consultadas por campo — por isso JSONB e não tabela normalizada.
+  // {"P": {"busto": 88, "cintura": 70, "comprimento": 96}, "M": {...}}
+  measurements: jsonb("measurements").$type<MedidasPorTamanho>(),
+  collectionId: integer("collection_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
+
+/** Medidas em centímetros, por tamanho. Chaves livres: cada peça mede o que faz sentido nela. */
+export type MedidasPorTamanho = Record<string, Record<string, number>>;
 
 export const insertProductSchema = createInsertSchema(products).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertProduct = z.infer<typeof insertProductSchema>;
@@ -340,11 +370,22 @@ export const orders = pgTable("orders", {
   internalNotes: text("internal_notes"),
   // Assinatura que materializou este pedido (null = pedido avulso)
   subscriptionId: integer("subscription_id"),
+  // Chave da consulta pública do pedido: o número é curto e adivinhável, o
+  // token não (INV-B). O DEFAULT do banco é quem gera — declarado aqui para o
+  // Drizzle saber que o insert não precisa (nem deve) informá-lo.
+  accessToken: text("access_token").notNull().default(sql`gen_random_uuid()::text`),
+  // Desconto de PIX efetivamente cobrado, congelado no pedido. O percentual
+  // vive em store_settings e pode mudar; o pedido guarda o que foi cobrado.
+  pixDiscountAmount: decimal("pix_discount_amount", { precision: 10, scale: 2 }).default("0"),
+  installments: integer("installments"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-export const insertOrderSchema = createInsertSchema(orders).omit({ id: true, createdAt: true, updatedAt: true });
+// accessToken sai do insert: quem grava é o DEFAULT do banco, não a aplicação.
+export const insertOrderSchema = createInsertSchema(orders).omit({
+  id: true, createdAt: true, updatedAt: true, accessToken: true,
+});
 export type InsertOrder = z.infer<typeof insertOrderSchema>;
 export type Order = typeof orders.$inferSelect;
 
@@ -611,3 +652,123 @@ export const checkoutSchema = z.object({
 });
 
 export type CheckoutData = z.infer<typeof checkoutSchema>;
+
+// ─── Coleções e Lookbooks ─────────────────────────────────────────────────────
+// A marca vende look, não item solto. A coleção agrupa peças por temporada; o
+// lookbook é a foto do look montado, com as peças dele apontadas.
+export const collections = pgTable("collections", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  slug: text("slug").notNull().unique(),
+  description: text("description"),
+  season: text("season"),
+  coverImageUrl: text("cover_image_url"),
+  sortOrder: integer("sort_order").notNull().default(0),
+  active: boolean("active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertCollectionSchema = createInsertSchema(collections).omit({ id: true, createdAt: true });
+export type InsertCollection = z.infer<typeof insertCollectionSchema>;
+export type Collection = typeof collections.$inferSelect;
+
+export const collectionProducts = pgTable("collection_products", {
+  id: serial("id").primaryKey(),
+  collectionId: integer("collection_id").notNull(),
+  productId: integer("product_id").notNull(),
+  sortOrder: integer("sort_order").notNull().default(0),
+});
+
+export type CollectionProduct = typeof collectionProducts.$inferSelect;
+
+export const lookbooks = pgTable("lookbooks", {
+  id: serial("id").primaryKey(),
+  collectionId: integer("collection_id"),
+  title: text("title").notNull(),
+  slug: text("slug").notNull().unique(),
+  imageUrl: text("image_url").notNull(),
+  active: boolean("active").notNull().default(true),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertLookbookSchema = createInsertSchema(lookbooks).omit({ id: true, createdAt: true });
+export type InsertLookbook = z.infer<typeof insertLookbookSchema>;
+export type Lookbook = typeof lookbooks.$inferSelect;
+
+export const lookbookItems = pgTable("lookbook_items", {
+  id: serial("id").primaryKey(),
+  lookbookId: integer("lookbook_id").notNull(),
+  productId: integer("product_id").notNull(),
+  // Opcional: aponta a cor exata da foto, quando o look usa uma variação específica.
+  variantId: integer("variant_id"),
+  sortOrder: integer("sort_order").notNull().default(0),
+});
+
+export type LookbookItem = typeof lookbookItems.$inferSelect;
+
+// ─── Consentimento de cookies ─────────────────────────────────────────────────
+// `visitorId` é um UUID de primeira visita guardado no localStorage. Sem IP e
+// sem user-agent de propósito: o registro prova o aceite, não identifica a
+// pessoa — guardar IP aqui viraria rastreamento, o oposto do que a LGPD pede.
+export const consentEvents = pgTable("consent_events", {
+  id: serial("id").primaryKey(),
+  visitorId: text("visitor_id").notNull(),
+  decision: text("decision").notNull(), // granted | denied
+  policyVersion: text("policy_version").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type ConsentEvent = typeof consentEvents.$inferSelect;
+
+// ─── Estúdio Visual IA ────────────────────────────────────────────────────────
+// Gera a peça em manequim virtual a partir da foto que a loja já tem. Nada do
+// que sai daqui vai ao catálogo sem uma pessoa aprovar.
+export const studioPresets = pgTable("studio_presets", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  background: text("background").notNull(),
+  pose: text("pose"),
+  framing: text("framing"),
+  extraPrompt: text("extra_prompt"),
+  active: boolean("active").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const insertStudioPresetSchema = createInsertSchema(studioPresets).omit({ id: true, createdAt: true });
+export type InsertStudioPreset = z.infer<typeof insertStudioPresetSchema>;
+export type StudioPreset = typeof studioPresets.$inferSelect;
+
+export const studioGenerations = pgTable("studio_generations", {
+  id: serial("id").primaryKey(),
+  productId: integer("product_id"),
+  sourceImageUrl: text("source_image_url").notNull(),
+  presetId: integer("preset_id"),
+  // Cópia dos parâmetros no momento da geração: o preset muda, a geração
+  // precisa continuar explicando a si mesma meses depois (REQ-2.4).
+  presetSnapshot: jsonb("preset_snapshot").notNull(),
+  variantCount: integer("variant_count").notNull().default(2),
+  status: text("status").notNull().default("na_fila"), // na_fila | processando | concluida | falhou
+  provider: text("provider"),
+  providerCost: decimal("provider_cost", { precision: 10, scale: 4 }),
+  errorMessage: text("error_message"),
+  requestedBy: integer("requested_by").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  finishedAt: timestamp("finished_at", { withTimezone: true }),
+});
+
+export type StudioGeneration = typeof studioGenerations.$inferSelect;
+
+export const studioVariants = pgTable("studio_variants", {
+  id: serial("id").primaryKey(),
+  generationId: integer("generation_id").notNull(),
+  url: text("url").notNull(),
+  position: integer("position").notNull().default(0),
+  status: text("status").notNull().default("pendente"), // pendente | aprovada | descartada
+  // Preenchido só na aprovação: é o vínculo com a foto publicada na galeria.
+  productImageId: integer("product_image_id"),
+  reviewedBy: integer("reviewed_by"),
+  reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+});
+
+export type StudioVariant = typeof studioVariants.$inferSelect;

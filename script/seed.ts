@@ -123,6 +123,11 @@ async function seedProdutos(catIds: Map<string, number>) {
       freeShipping: p.preco >= 399,
       seoTitle: `${p.titulo} | VIVI NOSRALLA`,
       seoDescription: p.descricao.slice(0, 155),
+      // O catálogo-semente já trazia a composição de cada peça; até existir a
+      // coluna, ela era descartada no seed. Medidas por tamanho ficam NULL de
+      // propósito: são dado real da peça, e vêm da cliente — inventar número
+      // aqui viraria troca e devolução na loja.
+      composition: p.composicao ?? null,
     }).returning({ id: products.id });
 
     idsPorSlug.set(p.slug, prod.id);
