@@ -17,7 +17,7 @@ const FEED = [
  */
 export default function SocialProof() {
   return (
-    <section aria-labelledby="instagram-titulo">
+    <section aria-labelledby="instagram-titulo" data-secao="prova-social">
       <div className="bleed pb-9">
         <div className="rule flex flex-wrap items-end justify-between gap-x-6 gap-y-3 pt-6">
           <div>

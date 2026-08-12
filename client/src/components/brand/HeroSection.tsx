@@ -20,7 +20,7 @@ const CHAPAS = [
 
 export default function HeroSection() {
   return (
-    <section aria-labelledby="hero-titulo">
+    <section aria-labelledby="hero-titulo" data-secao="hero">
       <div className="grid h-[52svh] min-h-[19rem] max-h-[34rem] grid-cols-2 gap-[var(--vn-gutter)] md:h-[62svh] md:max-h-[40rem] md:grid-cols-3 xl:grid-cols-4">
         {CHAPAS.map((c, i) => (
           <div

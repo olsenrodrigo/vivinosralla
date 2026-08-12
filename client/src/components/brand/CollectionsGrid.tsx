@@ -25,7 +25,7 @@ export default function CollectionsGrid() {
   if (!categorias.length) return null;
 
   return (
-    <section aria-labelledby="categorias-titulo">
+    <section aria-labelledby="categorias-titulo" data-secao="colecoes">
       <div className="bleed pb-9">
         <div className="rule flex flex-wrap items-end justify-between gap-x-6 gap-y-3 pt-6">
           <div>

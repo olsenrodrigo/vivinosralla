@@ -33,8 +33,13 @@ export default function NewArrivals({
 
   const produtos = data?.products ?? [];
 
+  // Loja sem peça publicada não mostra "Favoritas da estação" com nada embaixo
+  // (REQ-1.4). O bloco só some depois de a resposta chegar: enquanto carrega, o
+  // esqueleto segura o lugar e evita a home pulando na frente da visitante.
+  if (!isLoading && produtos.length === 0) return null;
+
   return (
-    <section className="bleed py-16 md:py-24">
+    <section className="bleed py-16 md:py-24" data-secao="novidades">
       <header className="rule flex flex-wrap items-end justify-between gap-x-6 gap-y-3 pt-6">
         <div>
           <p className="eyebrow">{chapeu}</p>

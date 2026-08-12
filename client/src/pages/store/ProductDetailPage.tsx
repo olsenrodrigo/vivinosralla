@@ -25,6 +25,137 @@ interface Product {
   price: string; compareAtPrice?: string; stockQuantity: number; status: string;
   sku?: string; tags?: string;
   images: ProductImage[]; variants: Variant[];
+  composition?: string | null;
+  /** Medidas em cm por tamanho: {"P": {"busto": 88, ...}, "M": {...}} */
+  measurements?: Record<string, Record<string, number>> | null;
+}
+
+/**
+ * Galeria na ordem do catálogo, com uma exceção: se a variação escolhida tem
+ * foto própria, ela encabeça a pilha (REQ-3.5).
+ *
+ * A spec fala em "trocar a imagem principal", que pressupõe uma foto de
+ * destaque com miniaturas embaixo. Esta PDP empilha todas as fotos e não tem
+ * miniatura — não existe uma "principal" para substituir. Trazer a foto da cor
+ * para o topo entrega o mesmo resultado neste layout: a cliente escolheu Preto,
+ * a primeira foto que ela vê é a peça preta.
+ */
+function ordenarGaleria(
+  todas: ProductImage[],
+  urlDaVariante?: string,
+): ProductImage[] {
+  const ordenadas = [...todas].sort((a, b) => a.position - b.position);
+  if (!urlDaVariante) return ordenadas;
+  const i = ordenadas.findIndex(img => img.url === urlDaVariante);
+  // Foto da variação que não está na galeria entra na frente mesmo assim.
+  if (i < 0) {
+    return [{ id: -1, url: urlDaVariante, isMain: false, position: -1 }, ...ordenadas];
+  }
+  return [ordenadas[i], ...ordenadas.slice(0, i), ...ordenadas.slice(i + 1)];
+}
+
+/** Grade alfabética da loja. Numéricos (36, 38…) ordenam por valor. */
+const ORDEM_GRADE = ["PP", "P", "M", "G", "GG", "XG", "XGG"];
+
+/**
+ * Ordena tamanhos como a etiqueta manda, não como o banco devolveu: `measurements`
+ * é JSONB, e JSONB reordena as chaves internamente. Sem isto a tabela sai
+ * "G, M, P, GG, PP" — que é como o Postgres guardou, e não como se veste.
+ */
+function ordenarTamanhos(chaves: string[]): string[] {
+  return [...chaves].sort((a, b) => {
+    const na = Number(a), nb = Number(b);
+    if (Number.isFinite(na) && Number.isFinite(nb)) return na - nb;
+    const ia = ORDEM_GRADE.indexOf(a.toUpperCase());
+    const ib = ORDEM_GRADE.indexOf(b.toUpperCase());
+    // Tamanho fora da grade conhecida vai para o fim, em ordem alfabética.
+    if (ia === -1 && ib === -1) return a.localeCompare(b, "pt-BR");
+    if (ia === -1) return 1;
+    if (ib === -1) return -1;
+    return ia - ib;
+  });
+}
+
+/**
+ * Tabela de medidas por tamanho (REQ-3.1).
+ *
+ * As chaves são livres — cada peça mede o que faz sentido nela: um vestido tem
+ * comprimento, uma calça tem gancho. A tabela é montada a partir do que a peça
+ * tem, não de uma lista fixa que obrigaria a inventar medida.
+ *
+ * A linha do tamanho selecionado fica destacada: a cliente já escolheu um
+ * tamanho acima, e ler a linha certa numa tabela de cinco é atrito à toa.
+ *
+ * Sem medidas cadastradas, nada é renderizado — tabela vazia diz à cliente que
+ * a loja não sabe o tamanho da própria roupa.
+ */
+function TabelaDeMedidas({
+  medidas,
+  tamanhoAtual,
+}: {
+  medidas?: Record<string, Record<string, number>> | null;
+  tamanhoAtual: string | null;
+}) {
+  if (!medidas) return null;
+  // JSONB não preserva ordem de chave: sem ordenar, a tabela sai G, M, P, GG…
+  const tamanhos = ordenarTamanhos(Object.keys(medidas));
+  if (!tamanhos.length) return null;
+
+  // União das medidas presentes, preservando a ordem em que aparecem.
+  const colunas: string[] = [];
+  for (const t of tamanhos) {
+    for (const campo of Object.keys(medidas[t] ?? {})) {
+      if (!colunas.includes(campo)) colunas.push(campo);
+    }
+  }
+  if (!colunas.length) return null;
+
+  return (
+    <div className="rule mt-9 pt-7">
+      <h2 className="eyebrow">Medidas da peça</h2>
+      {/* A tabela rola sozinha em tela estreita; a página nunca rola na horizontal. */}
+      <div className="mt-4 overflow-x-auto">
+        <table className="w-full min-w-[18rem] border-collapse font-sans text-[0.9375rem]">
+          <caption className="sr-only">
+            Medidas em centímetros por tamanho
+          </caption>
+          <thead>
+            <tr className="border-b border-vn-olive-200/60 text-left">
+              <th scope="col" className="py-2 pr-4 font-medium text-vn-ink">Tamanho</th>
+              {colunas.map(c => (
+                <th key={c} scope="col" className="py-2 pr-4 font-medium capitalize text-vn-ink">
+                  {c}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {tamanhos.map(t => (
+              <tr
+                key={t}
+                aria-current={t === tamanhoAtual ? "true" : undefined}
+                className={
+                  t === tamanhoAtual
+                    ? "border-b border-vn-olive-200/40 bg-vn-olive-100/50 font-medium text-vn-ink"
+                    : "border-b border-vn-olive-200/40 text-vn-ink-soft"
+                }
+              >
+                <th scope="row" className="py-2 pr-4 text-left font-medium">{t}</th>
+                {colunas.map(c => (
+                  <td key={c} className="py-2 pr-4">
+                    {medidas[t]?.[c] != null ? `${medidas[t][c]} cm` : "—"}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="mt-3 font-sans text-[0.875rem] text-vn-ink-soft/80">
+        Medidas da peça, não do corpo. Variação de até 2 cm é normal na costura.
+      </p>
+    </div>
+  );
 }
 
 const GARANTIAS = [
@@ -64,8 +195,17 @@ export default function ProductDetailPage() {
       .then((data: Product | null) => {
         setProduct(data);
         if (!data) return;
+        // Tamanho escolhido na grade do card da listagem (REQ-2.10). Só vale se
+        // existir variação ativa nele; `?tamanho=XG` inventado na URL cai no
+        // comportamento normal em vez de deixar a compra travada num tamanho
+        // que a peça não tem.
+        const pedido = new URLSearchParams(window.location.search).get("tamanho");
+        const daUrl = pedido
+          ? data.variants?.find(v => v.active && v.option1 === pedido)
+          : undefined;
         // Pré-seleciona a primeira combinação com estoque
-        const disponivel = data.variants?.find(v => v.active && v.stockQuantity > 0) ?? data.variants?.[0];
+        const disponivel =
+          daUrl ?? data.variants?.find(v => v.active && v.stockQuantity > 0) ?? data.variants?.[0];
         setTamanho(disponivel?.option1 ?? null);
         setCor(disponivel?.option2 ?? null);
       })
@@ -147,7 +287,21 @@ export default function ProductDetailPage() {
     );
   }
 
-  const imagens = [...product.images].sort((a, b) => a.position - b.position);
+  /*
+   * Galeria na ordem do catálogo, com uma exceção: se a variação escolhida tem
+   * foto própria, ela encabeça a pilha (REQ-3.5).
+   *
+   * A spec fala em "trocar a imagem principal", que pressupõe uma foto de
+   * destaque com miniaturas embaixo. Esta PDP empilha todas as fotos e não tem
+   * miniatura — não existe uma "principal" para substituir. Trazer a foto da
+   * cor para o topo é o que entrega o mesmo resultado neste layout: a cliente
+   * escolheu Preto, a primeira foto que ela vê é a peça preta.
+   */
+  // Sem useMemo de propósito: este ponto do componente fica DEPOIS dos returns
+  // de carregamento e de 404, e um hook aqui muda a contagem de hooks entre
+  // renders ("Rendered more hooks than during the previous render"). A lista
+  // tem no máximo algumas fotos — ordenar a cada render não custa nada.
+  const imagens = ordenarGaleria(product.images, variante?.imageUrl);
   /*
    * A chapa segue a proporção nativa das fotos do catálogo (3:4). Qualquer
    * outra caixa faria o `object-cover` decepar a peça — que é justamente o
@@ -405,6 +559,17 @@ export default function ProductDetailPage() {
                 </p>
               </div>
             )}
+
+            {product.composition && (
+              <div className="rule mt-9 pt-7">
+                <h2 className="eyebrow">Composição e cuidados</h2>
+                <p className="mt-4 font-sans text-[1.0625rem] leading-relaxed text-vn-ink-soft">
+                  {product.composition}
+                </p>
+              </div>
+            )}
+
+            <TabelaDeMedidas medidas={product.measurements} tamanhoAtual={tamanho} />
 
             <ul className="rule mt-9 space-y-3 pt-7">
               {GARANTIAS.map(g => (
