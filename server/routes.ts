@@ -274,10 +274,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const origem = origemDe(req);
     // Só peça publicada e coleção ativa: despublicar tira do sitemap na
     // requisição seguinte, sem cache nosso no meio (REQ-5.5).
-    const [{ products: prods }, colecoes] = await Promise.all([
-      storage.listProducts({ status: "active", published: true, limit: 5000, offset: 0 }),
-      storage.listActiveCollections(),
-    ]);
+    const { products: prods } = await storage.listProducts({
+      status: "active", published: true, limit: 5000, offset: 0,
+    });
 
     const url = (caminho: string, lastmod?: Date | null) =>
       `  <url>\n    <loc>${escaparXml(origem + caminho)}</loc>` +
@@ -294,7 +293,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       url("/trocas-e-devolucoes"),
       url("/privacidade"),
       url("/guia-de-medidas"),
-      ...colecoes.map(c => url(`/loja/colecao/${c.slug}`)),
+      // As coleções ficam FORA do sitemap até existir a página pública que as
+      // renderiza: hoje `/api/store/collections/:slug` devolve os dados, mas
+      // nenhuma tela os consome, e `/loja/colecao/<slug>` cairia no not-found
+      // da SPA. Anunciar ao Google uma URL que responde 404 é pior que não
+      // anunciar nada. Reativar junto com a tela (ver VIVI-42).
       ...prods.map(p => url(`/loja/produto/${p.slug}`, p.updatedAt)),
       "</urlset>",
     ].join("\n");
