@@ -253,6 +253,147 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   // Store settings (public)
+  // ─── SEO e GEO ─────────────────────────────────────────────────────────────
+  /*
+   * A origem vem do request, não de constante: a mesma imagem roda em
+   * localhost, em staging e no domínio final, e um sitemap com a URL errada é
+   * pior que sitemap nenhum — o Google indexa o endereço que você mandou.
+   */
+  const origemDe = (req: any): string => {
+    const configurada = (process.env.PUBLIC_URL || "").replace(/\/$/, "");
+    if (configurada) return configurada;
+    const proto = String(req.headers["x-forwarded-proto"] || req.protocol || "http").split(",")[0];
+    return `${proto}://${req.get("host")}`;
+  };
+
+  const escaparXml = (s: string) =>
+    s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+     .replace(/"/g, "&quot;").replace(/'/g, "&apos;");
+
+  app.get("/sitemap.xml", async (req, res) => {
+    const origem = origemDe(req);
+    // Só peça publicada e coleção ativa: despublicar tira do sitemap na
+    // requisição seguinte, sem cache nosso no meio (REQ-5.5).
+    const [{ products: prods }, colecoes] = await Promise.all([
+      storage.listProducts({ status: "active", published: true, limit: 5000, offset: 0 }),
+      storage.listActiveCollections(),
+    ]);
+
+    const url = (caminho: string, lastmod?: Date | null) =>
+      `  <url>\n    <loc>${escaparXml(origem + caminho)}</loc>` +
+      (lastmod ? `\n    <lastmod>${new Date(lastmod).toISOString().slice(0, 10)}</lastmod>` : "") +
+      `\n  </url>`;
+
+    const corpo = [
+      '<?xml version="1.0" encoding="UTF-8"?>',
+      '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+      url("/"),
+      url("/loja"),
+      url("/sobre"),
+      url("/contato"),
+      url("/trocas-e-devolucoes"),
+      url("/privacidade"),
+      url("/guia-de-medidas"),
+      ...colecoes.map(c => url(`/loja/colecao/${c.slug}`)),
+      ...prods.map(p => url(`/loja/produto/${p.slug}`, p.updatedAt)),
+      "</urlset>",
+    ].join("\n");
+
+    res.type("application/xml");
+    res.set("Cache-Control", "public, max-age=3600");
+    return res.send(corpo);
+  });
+
+  app.get("/robots.txt", (req, res) => {
+    const origem = origemDe(req);
+    res.type("text/plain");
+    res.set("Cache-Control", "public, max-age=3600");
+    return res.send(
+      [
+        "User-agent: *",
+        "Disallow: /admin",
+        "Disallow: /api",
+        "Allow: /",
+        "",
+        `Sitemap: ${origem}/sitemap.xml`,
+        "",
+      ].join("\n"),
+    );
+  });
+
+  /*
+   * llms.txt — a versão do robots.txt para engine de IA (REQ-6.1).
+   *
+   * Quem pergunta a uma IA "onde compro alfaiataria feminina em Monte Alto"
+   * precisa que a resposta saiba que esta loja existe, o que vende e por onde
+   * navegar. É texto para máquina ler, então diz o essencial sem enfeite.
+   */
+  app.get("/llms.txt", async (req, res) => {
+    const origem = origemDe(req);
+    const cats = await storage.listCategories();
+    res.type("text/plain");
+    res.set("Cache-Control", "public, max-age=3600");
+    return res.send(
+      [
+        "# VIVI NOSRALLA",
+        "",
+        "> Loja de roupas e acessórios femininos em Monte Alto, São Paulo, Brasil.",
+        "> Alfaiataria, vestidos, tricô e peças de festa. Envio para todo o Brasil.",
+        "",
+        "## Catálogo",
+        "",
+        ...cats.map(c => `- [${c.name}](${origem}/loja?category=${c.id})`),
+        "",
+        "## Caminhos",
+        "",
+        `- Vitrine: ${origem}/loja`,
+        `- Peça: ${origem}/loja/produto/{slug}`,
+        `- Feed de catálogo (JSON): ${origem}/feed/catalogo.json`,
+        `- Guia de medidas: ${origem}/guia-de-medidas`,
+        `- Trocas e devoluções: ${origem}/trocas-e-devolucoes`,
+        `- Contato: ${origem}/contato`,
+        "",
+      ].join("\n"),
+    );
+  });
+
+  /** Catálogo legível por máquina (REQ-6.2, REQ-6.3). Só peça publicada. */
+  app.get("/feed/catalogo.json", async (req, res) => {
+    const origem = origemDe(req);
+    const { products: prods } = await storage.listProducts({
+      status: "active", published: true, limit: 5000, offset: 0,
+    });
+    const ids = prods.map(p => p.id);
+    const [imagens, grades] = await Promise.all([
+      storage.getImagesForProducts(ids),
+      storage.getVariantsForProducts(ids),
+    ]);
+
+    res.set("Cache-Control", "public, max-age=1800");
+    return res.json({
+      loja: "VIVI NOSRALLA",
+      cidade: "Monte Alto, SP, Brasil",
+      atualizadoEm: new Date().toISOString(),
+      pecas: prods.map(p => {
+        const vs = grades.get(p.id) ?? [];
+        const imgs = imagens.get(p.id) ?? [];
+        return {
+          slug: p.slug,
+          nome: p.title,
+          preco: Number(p.price),
+          moeda: "BRL",
+          tamanhos: [...new Set(vs.map(v => v.option1).filter(Boolean))],
+          cores: [...new Set(vs.map(v => v.option2).filter(Boolean))],
+          composicao: p.composition ?? null,
+          medidas: p.measurements ?? null,
+          disponivel: p.stockQuantity > 0 || p.continueSellingOutOfStock,
+          imagem: imgs[0] ? origem + imgs[0].url : null,
+          url: `${origem}/loja/produto/${p.slug}`,
+        };
+      }),
+    });
+  });
+
   /*
    * Registro do consentimento de cookies (REQ-7.2, REQ-7.3).
    *

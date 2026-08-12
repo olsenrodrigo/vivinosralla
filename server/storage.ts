@@ -505,6 +505,21 @@ export class DatabaseStorage {
     return mapa;
   }
 
+  /** Variantes de várias peças numa consulta só — feed e exportações. */
+  async getVariantsForProducts(productIds: number[]): Promise<Map<number, Variant[]>> {
+    const mapa = new Map<number, Variant[]>();
+    if (!productIds.length) return mapa;
+    const rows = await db.select().from(variants)
+      .where(and(inArray(variants.productId, productIds), eq(variants.active, true)))
+      .orderBy(asc(variants.id));
+    for (const v of rows) {
+      const lista = mapa.get(v.productId);
+      if (lista) lista.push(v);
+      else mapa.set(v.productId, [v]);
+    }
+    return mapa;
+  }
+
   /**
    * Registra a escolha da visitante sobre rastreio (REQ-7.2, REQ-7.3).
    * Append-only: cada mudança de ideia vira uma linha nova, porque o que

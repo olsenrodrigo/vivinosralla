@@ -13,6 +13,7 @@ import BundleOffer, { type ApiBundle } from "@/components/store/BundleOffer";
 import ProvadorVirtual from "@/components/store/ProvadorVirtual";
 import { corHex, precoBR, whatsappCom, FRETE_GRATIS_ACIMA } from "@/lib/marca";
 import { descontoPix, PIX_DESCONTO } from "@shared/pagamento";
+import { aplicarSeo, aplicarJsonLdProduto, removerJsonLdProduto } from "@/lib/seo";
 
 interface ProductImage { id: number; url: string; altText?: string; isMain: boolean; position: number; }
 interface Variant {
@@ -183,6 +184,33 @@ export default function ProductDetailPage() {
   const { addToCart, loading: cartLoading } = useCart();
   const { toast } = useToast();
   const analyticsOn = useAnalyticsReady();
+
+  // Metatags e JSON-LD da peça (REQ-5.1, REQ-5.4). Roda quando a peça carrega
+  // e some ao sair: sem a limpeza, o bloco Product da peça anterior ficaria no
+  // documento anunciando um preço que não é mais o da tela.
+  useEffect(() => {
+    if (!product) return;
+    const caminho = `/loja/produto/${product.slug}`;
+    const imagens = product.images.map(i => i.url);
+    aplicarSeo({
+      titulo: product.title,
+      descricao: (product.description || product.composition || product.title).slice(0, 300),
+      caminho,
+      imagem: imagens[0] ?? null,
+      tipo: "product",
+    });
+    aplicarJsonLdProduto({
+      nome: product.title,
+      descricao: product.description,
+      sku: product.sku,
+      imagens,
+      preco: product.price,
+      disponivel: product.stockQuantity > 0,
+      caminho,
+      marca: product.brand,
+    });
+    return () => removerJsonLdProduto();
+  }, [product]);
 
   useEffect(() => {
     setLoading(true);
